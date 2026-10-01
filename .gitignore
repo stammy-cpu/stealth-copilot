@@ -1,0 +1,49 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+*.spec
+*.log
+
+# PyInstaller output
+/dist/
+/build/
+StealthCopilot_Setup.exe
+
+# ── Python env ────────────────────────────────────────────────────────────────
+.env
+.venv
+venv/
+env/
+*.env.local
+
+# ── Node / Next.js ────────────────────────────────────────────────────────────
+copilot-web/node_modules/
+copilot-web/.next/
+copilot-web/out/
+copilot-web/.env.local
+copilot-web/.env*.local
+copilot-web/npm-debug.log*
+copilot-web/yarn-debug.log*
+copilot-web/yarn-error.log*
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editor ────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Secrets ───────────────────────────────────────────────────────────────────
+*.key
+*.pem
+secrets.py
