@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import InterviewSetupWizard, { WizardConfig } from '@/components/InterviewSetupWizard'
-import { Zap, CheckCircle2, ExternalLink } from 'lucide-react'
+import { Zap, CheckCircle2 } from 'lucide-react'
 
 export default function WizardDemoPage() {
   const [open,   setOpen]   = useState(false)

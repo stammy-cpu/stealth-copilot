@@ -163,7 +163,7 @@ export default function InterviewSetupWizard({ onComplete, onDismiss }: Props) {
       }, 16)
       return () => clearInterval(timer)
     }
-  }, [step])
+  }, [step, jobRole, scoreAnimated])
 
   // ── Navigation ────────────────────────────────────────────────────────────
   function goTo(next: number) {
@@ -381,7 +381,7 @@ export default function InterviewSetupWizard({ onComplete, onDismiss }: Props) {
                 Target Interview Link
               </h2>
               <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 24, lineHeight: 1.6 }}>
-                Paste a LinkedIn job post, job board listing, or interview portal URL. We'll extract the role, company, and requirements automatically.
+                Paste a LinkedIn job post, job board listing, or interview portal URL. We&apos;ll extract the role, company, and requirements automatically.
               </p>
 
               {/* URL input row */}
@@ -605,7 +605,7 @@ export default function InterviewSetupWizard({ onComplete, onDismiss }: Props) {
                     Context Review
                   </h2>
                   <p style={{ color: '#94a3b8', fontSize: 13, lineHeight: 1.6 }}>
-                    Review and refine the extracted context. This drives your AI co-pilot's responses.
+                    Review and refine the extracted context. This drives your AI co-pilot&apos;s responses.
                   </p>
                 </div>
 

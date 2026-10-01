@@ -68,8 +68,9 @@ Return ONLY the JSON object.`
     }
 
     return NextResponse.json(parsed)
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal error'
     console.error('[generate-prompt]', err)
-    return NextResponse.json({ error: err.message ?? 'Internal error' }, { status: 500 })
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

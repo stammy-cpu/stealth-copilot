@@ -55,8 +55,8 @@ export default function GenerateClient({ userId }: Props) {
       })
       if (!res.ok) { const e = await res.json(); throw new Error(e.error ?? 'Generation failed') }
       setResult(await res.json())
-    } catch (e: any) {
-      setError(e.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Generation failed')
     } finally {
       setLoading(false)
     }
@@ -74,8 +74,8 @@ export default function GenerateClient({ userId }: Props) {
       })
       if (!res.ok) throw new Error('Save failed')
       setSaved(true)
-    } catch (e: any) {
-      setError(e.message)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Save failed')
     } finally {
       setSaving(false)
     }

@@ -10,8 +10,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const {
       userId, cvText, jdText,
-      role_title, company_name, hourly_rate,
-      system_prompt, anchor_stories,
+      role_title, company_name, hourly_rate, system_prompt,
     } = body
 
     if (userId !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -35,8 +34,9 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error
     return NextResponse.json(data)
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Save failed'
     console.error('[save-profile]', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { createClient } from '@/lib/supabase/server'
 import DashboardClient from './DashboardClient'
 import type { InterviewProfile, ActiveSession } from '@/lib/types'

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import ProfilesClient from './ProfilesClient'
@@ -15,7 +17,7 @@ export default async function ProfilesPage() {
   ])
 
   return (
-    <div className="flex min-h-screen bg-[#080c14]">
+    <div className="flex min-h-screen" style={{ backgroundColor: '#080b11' }}>
       <Sidebar userEmail={user.email} />
       <main className="flex-1 ml-60 p-8">
         <ProfilesClient

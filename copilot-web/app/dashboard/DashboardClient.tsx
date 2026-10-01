@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Monitor, Wifi, WifiOff, RefreshCw, Briefcase, DollarSign, Clock, ChevronRight, Zap } from 'lucide-react'
+import { Monitor, Wifi, WifiOff, RefreshCw, Briefcase, DollarSign, Clock, ChevronRight } from 'lucide-react'
 import type { InterviewProfile, ActiveSession } from '@/lib/types'
 import Link from 'next/link'
 
@@ -16,10 +16,11 @@ type Props = {
 export default function DashboardClient({ userId, initialSession, initialProfiles, activeProfile: initActive }: Props) {
   const supabase = createClient()
   const [session, setSession] = useState<ActiveSession | null>(initialSession)
-  const [active,  setActive]  = useState<InterviewProfile | null>(initActive)
   const [syncing, setSyncing] = useState(false)
   const [synced,  setSynced]  = useState(false)
   const isOnline = session?.is_desktop_connected ?? false
+  // Derive active profile from live session so it updates on realtime changes
+  const active = initialProfiles.find(p => p.id === session?.active_profile_id) ?? initActive
 
   // ── Realtime subscription ─────────────────────────────────────────────────
   useEffect(() => {
@@ -31,7 +32,7 @@ export default function DashboardClient({ userId, initialSession, initialProfile
       }, payload => setSession(payload.new as ActiveSession))
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [userId])
+  }, [userId, supabase])
 
   // ── One-click sync ────────────────────────────────────────────────────────
   async function handleSync() {
