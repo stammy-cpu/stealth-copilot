@@ -8,7 +8,6 @@ import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, Zap, Mail, Lock, User } from 'lucide-react'
 
 export default function SignupPage() {
-  const supabase = createClient()
   const [name,     setName]     = useState('')
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
@@ -20,6 +19,7 @@ export default function SignupPage() {
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true); setError('')
+    const supabase = createClient()
     const { error } = await supabase.auth.signUp({
       email, password,
       options: { data: { full_name: name } },
