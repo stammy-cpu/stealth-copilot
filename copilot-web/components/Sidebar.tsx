@@ -1,25 +1,16 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { LayoutDashboard, User2, Sparkles, LogOut, Zap } from 'lucide-react'
+import { usePathname } from 'next/navigation'
+import { LayoutDashboard, Sparkles, Zap } from 'lucide-react'
 
 const NAV = [
   { href: '/dashboard', label: 'Interview Studio', icon: LayoutDashboard },
-  { href: '/profiles',  label: 'Profile Manager',  icon: User2 },
   { href: '/generate',  label: 'AI Generator',     icon: Sparkles },
 ]
 
-export default function Sidebar({ userEmail }: { userEmail?: string }) {
+export default function Sidebar() {
   const pathname = usePathname()
-  const router   = useRouter()
-  const supabase = createClient()
-
-  async function signOut() {
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
 
   return (
     <aside
@@ -101,38 +92,11 @@ export default function Sidebar({ userEmail }: { userEmail?: string }) {
         })}
       </nav>
 
-      {/* User footer */}
-      <div className="p-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-        {/* Avatar row */}
-        <div className="flex items-center gap-2.5 px-3 py-2 mb-1">
-          <div
-            className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, #6366f1, #06b6d4)' }}
-          >
-            {userEmail?.[0]?.toUpperCase() ?? 'U'}
-          </div>
-          <p className="text-xs truncate" style={{ color: '#94a3b8' }}>{userEmail ?? 'User'}</p>
-        </div>
-
-        <button
-          onClick={signOut}
-          className="flex items-center gap-2 w-full px-3 py-2 rounded-[10px] text-sm font-medium"
-          style={{
-            color: '#64748b',
-            transition: 'all 150ms ease-in-out',
-          }}
-          onMouseOver={e => {
-            e.currentTarget.style.background = 'rgba(239,68,68,0.08)'
-            e.currentTarget.style.color = '#ef4444'
-          }}
-          onMouseOut={e => {
-            e.currentTarget.style.background = 'transparent'
-            e.currentTarget.style.color = '#64748b'
-          }}
-        >
-          <LogOut className="w-4 h-4" />
-          Sign out
-        </button>
+      {/* Footer branding */}
+      <div className="p-4" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+        <p className="text-[10px] text-center" style={{ color: '#334155' }}>
+          Stealth Copilot · Local Mode
+        </p>
       </div>
     </aside>
   )

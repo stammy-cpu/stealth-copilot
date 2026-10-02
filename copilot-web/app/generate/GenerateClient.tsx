@@ -4,8 +4,6 @@ import { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { Upload, FileText, Sparkles, CheckCircle, Loader2, AlertCircle, X } from 'lucide-react'
 
-type Props = { userId: string }
-
 type GeneratedConfig = {
   system_prompt: string
   anchor_stories: string[]
@@ -14,7 +12,7 @@ type GeneratedConfig = {
   hourly_rate: string
 }
 
-export default function GenerateClient({ userId }: Props) {
+export default function GenerateClient() {
   const [cvText,    setCvText]    = useState('')
   const [jdText,    setJdText]    = useState('')
   const [roleTitle, setRoleTitle] = useState('')
@@ -70,7 +68,7 @@ export default function GenerateClient({ userId }: Props) {
       const res = await fetch('/api/save-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, cvText, jdText, ...result }),
+        body: JSON.stringify({ cvText, jdText, ...result }),
       })
       if (!res.ok) throw new Error('Save failed')
       setSaved(true)

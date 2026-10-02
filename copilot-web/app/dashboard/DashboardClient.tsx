@@ -1,56 +1,37 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { Monitor, Wifi, WifiOff, RefreshCw, Briefcase, DollarSign, Clock, ChevronRight } from 'lucide-react'
-import type { InterviewProfile, ActiveSession } from '@/lib/types'
+import { useState } from 'react'
+import { Monitor, Wifi, WifiOff, RefreshCw, Briefcase, DollarSign, Clock, Zap } from 'lucide-react'
 import Link from 'next/link'
 
-type Props = {
-  userId: string
-  initialSession: ActiveSession | null
-  initialProfiles: InterviewProfile[]
-  activeProfile: InterviewProfile | null
+// In-memory profile shape (no DB)
+export type LocalProfile = {
+  id: string
+  role_title: string
+  company_name?: string
+  hourly_rate?: string
+  system_prompt?: string
+  vad_silence_threshold: number
+  max_tokens: number
+  temperature: number
+  created_at: string
 }
 
-export default function DashboardClient({ userId, initialSession, initialProfiles, activeProfile: initActive }: Props) {
-  const supabase = createClient()
-  const [session, setSession] = useState<ActiveSession | null>(initialSession)
-  const [syncing, setSyncing] = useState(false)
-  const [synced,  setSynced]  = useState(false)
-  const isOnline = session?.is_desktop_connected ?? false
-  // Derive active profile from live session so it updates on realtime changes
-  const active = initialProfiles.find(p => p.id === session?.active_profile_id) ?? initActive
+export default function DashboardClient() {
+  const [profiles]     = useState<LocalProfile[]>([])
+  const [active]       = useState<LocalProfile | null>(null)
+  const [isOnline]     = useState(false)
+  const [synced, setSynced] = useState(false)
 
-  // ── Realtime subscription ─────────────────────────────────────────────────
-  useEffect(() => {
-    const channel = supabase
-      .channel('active_sessions_dashboard')
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'active_sessions',
-        filter: `user_id=eq.${userId}`,
-      }, payload => setSession(payload.new as ActiveSession))
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [userId, supabase])
-
-  // ── One-click sync ────────────────────────────────────────────────────────
-  async function handleSync() {
-    if (!active) return
-    setSyncing(true)
-    await supabase.from('active_sessions').upsert({
-      user_id: userId,
-      active_profile_id: active.id,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' })
-    setSyncing(false); setSynced(true)
+  function handleSync() {
+    setSynced(true)
     setTimeout(() => setSynced(false), 2500)
   }
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
 
-      {/* ── Page header ────────────────────────────────────────────────────── */}
+      {/* ── Page header ─────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between">
         <div>
           <h1
@@ -71,20 +52,15 @@ export default function DashboardClient({ userId, initialSession, initialProfile
             background: 'rgba(16,185,129,0.12)',
             border: '1px solid rgba(16,185,129,0.3)',
             color: '#10b981',
-            transition: 'all 150ms ease-in-out',
           } : {
             background: 'rgba(100,116,139,0.1)',
             border: '1px solid rgba(100,116,139,0.2)',
             color: '#64748b',
-            transition: 'all 150ms ease-in-out',
           }}
         >
           <span
             className="w-2 h-2 rounded-full"
-            style={{
-              background: isOnline ? '#10b981' : '#475569',
-              ...(isOnline ? { animation: 'glow-pulse 2s ease-in-out infinite' } : {}),
-            }}
+            style={{ background: isOnline ? '#10b981' : '#475569' }}
           />
           {isOnline
             ? <><Wifi className="w-3.5 h-3.5" />Desktop Online</>
@@ -93,7 +69,7 @@ export default function DashboardClient({ userId, initialSession, initialProfile
         </div>
       </div>
 
-      {/* ── Active profile banner ───────────────────────────────────────────── */}
+      {/* ── Active profile banner ────────────────────────────────────────────── */}
       <div
         className="relative rounded-[10px] overflow-hidden"
         style={active ? {
@@ -107,17 +83,8 @@ export default function DashboardClient({ userId, initialSession, initialProfile
           border: '1px solid rgba(255,255,255,0.08)',
         }}
       >
-        {/* Subtle gradient wash when active */}
-        {active && (
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.05) 0%, rgba(6,182,212,0.03) 100%)' }}
-          />
-        )}
-
         <div className="relative p-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            {/* Icon */}
             <div
               className="w-12 h-12 rounded-[10px] flex items-center justify-center flex-shrink-0"
               style={active ? {
@@ -128,10 +95,7 @@ export default function DashboardClient({ userId, initialSession, initialProfile
                 border: '1px solid rgba(255,255,255,0.08)',
               }}
             >
-              <Monitor
-                className="w-6 h-6"
-                style={{ color: active ? '#6366f1' : '#64748b' }}
-              />
+              <Monitor className="w-6 h-6" style={{ color: active ? '#6366f1' : '#64748b' }} />
             </div>
 
             <div>
@@ -140,10 +104,7 @@ export default function DashboardClient({ userId, initialSession, initialProfile
               </p>
               {active ? (
                 <>
-                  <h2
-                    className="text-lg font-bold"
-                    style={{ fontFamily: 'var(--font-jakarta)', color: '#f8fafc' }}
-                  >
+                  <h2 className="text-lg font-bold" style={{ fontFamily: 'var(--font-jakarta)', color: '#f8fafc' }}>
                     {active.role_title}
                   </h2>
                   <div className="flex items-center gap-4 mt-1.5">
@@ -164,9 +125,9 @@ export default function DashboardClient({ userId, initialSession, initialProfile
                 </>
               ) : (
                 <p className="text-sm" style={{ color: '#64748b' }}>
-                  No profile selected —{' '}
-                  <Link href="/profiles" style={{ color: '#6366f1' }} className="hover:underline transition-colors duration-150">
-                    choose one
+                  No profile loaded —{' '}
+                  <Link href="/generate" style={{ color: '#6366f1' }} className="hover:underline">
+                    generate one
                   </Link>
                 </p>
               )}
@@ -176,7 +137,6 @@ export default function DashboardClient({ userId, initialSession, initialProfile
           {active && (
             <button
               onClick={handleSync}
-              disabled={syncing}
               className="flex items-center gap-2 px-5 py-2.5 rounded-[10px] text-sm font-semibold"
               style={synced ? {
                 background: 'rgba(16,185,129,0.15)',
@@ -184,31 +144,31 @@ export default function DashboardClient({ userId, initialSession, initialProfile
                 color: '#10b981',
                 transition: 'all 150ms ease-in-out',
               } : {
-                background: syncing ? 'rgba(99,102,241,0.6)' : '#6366f1',
+                background: '#6366f1',
                 color: '#ffffff',
                 border: 'none',
                 boxShadow: '0 0 20px -3px rgba(99,102,241,0.4)',
                 transition: 'all 150ms ease-in-out',
-                cursor: syncing ? 'not-allowed' : 'pointer',
+                cursor: 'pointer',
               }}
             >
-              <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-              {synced ? 'Synced!' : syncing ? 'Syncing...' : 'One-Click Sync'}
+              <RefreshCw className="w-4 h-4" />
+              {synced ? 'Synced!' : 'Push to Desktop'}
             </button>
           )}
         </div>
       </div>
 
-      {/* ── Stats grid ─────────────────────────────────────────────────────── */}
+      {/* ── Stats grid ───────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: 'Saved Profiles', value: initialProfiles.length, accent: '#6366f1' },
-          { label: 'Max Tokens',     value: active?.max_tokens ?? '—',  accent: '#06b6d4' },
-          { label: 'Temperature',    value: active?.temperature ?? '—', accent: '#8b5cf6' },
+          { label: 'Profiles (session)', value: profiles.length, accent: '#6366f1' },
+          { label: 'Max Tokens',         value: active?.max_tokens ?? '—', accent: '#06b6d4' },
+          { label: 'Temperature',        value: active?.temperature ?? '—', accent: '#8b5cf6' },
         ].map(({ label, value, accent }) => (
           <div
             key={label}
-            className="rounded-[10px] p-5 hover-lift"
+            className="rounded-[10px] p-5"
             style={{
               background: '#0f172a',
               border: '1px solid rgba(255,255,255,0.08)',
@@ -218,70 +178,40 @@ export default function DashboardClient({ userId, initialSession, initialProfile
             <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#64748b' }}>
               {label}
             </p>
-            <p
-              className="text-3xl font-bold font-mono"
-              style={{ color: accent }}
-            >
-              {value}
-            </p>
+            <p className="text-3xl font-bold font-mono" style={{ color: accent }}>{value}</p>
           </div>
         ))}
       </div>
 
-      {/* ── Recent profiles ─────────────────────────────────────────────────── */}
-      {initialProfiles.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3
-              className="text-xs font-semibold uppercase tracking-widest"
-              style={{ color: '#64748b' }}
-            >
-              Recent Profiles
-            </h3>
-            <Link
-              href="/profiles"
-              className="flex items-center gap-1 text-xs font-medium transition-colors duration-150"
-              style={{ color: '#6366f1' }}
-            >
-              View all <ChevronRight className="w-3 h-3" />
-            </Link>
+      {/* ── Quick start CTA ──────────────────────────────────────────────────── */}
+      {profiles.length === 0 && (
+        <div
+          className="rounded-[10px] p-8 text-center"
+          style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <div
+            className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"
+            style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)' }}
+          >
+            <Zap className="w-6 h-6" style={{ color: '#6366f1' }} />
           </div>
-
-          <div className="space-y-2">
-            {initialProfiles.slice(0, 3).map(p => {
-              const isA = p.id === active?.id
-              return (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between px-4 py-3.5 rounded-[10px]"
-                  style={{
-                    background: isA ? 'rgba(99,102,241,0.1)' : '#0f172a',
-                    border: isA ? '1px solid rgba(99,102,241,0.25)' : '1px solid rgba(255,255,255,0.08)',
-                    transition: 'all 150ms ease-in-out',
-                  }}
-                >
-                  <div>
-                    <p className="text-sm font-semibold" style={{ color: '#f8fafc' }}>{p.role_title}</p>
-                    <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>
-                      {p.company_name ?? 'No company'} · {new Date(p.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  {isA && (
-                    <span
-                      className="text-xs font-semibold px-2.5 py-1 rounded-full"
-                      style={{
-                        background: 'rgba(99,102,241,0.15)',
-                        color: '#6366f1',
-                        border: '1px solid rgba(99,102,241,0.3)',
-                      }}
-                    >
-                      Active
-                    </span>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+          <h3 className="text-base font-semibold mb-1" style={{ color: '#f8fafc' }}>
+            No profiles yet
+          </h3>
+          <p className="text-sm mb-4" style={{ color: '#64748b' }}>
+            Use the AI Generator to build your first interview profile
+          </p>
+          <Link
+            href="/generate"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-[10px] text-sm font-semibold"
+            style={{
+              background: 'linear-gradient(90deg, #6366f1, #06b6d4)',
+              color: '#fff',
+              boxShadow: '0 0 20px -4px rgba(99,102,241,0.4)',
+            }}
+          >
+            <Zap className="w-4 h-4" /> Generate Profile
+          </Link>
         </div>
       )}
     </div>

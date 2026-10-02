@@ -1,6 +1,6 @@
+// Local in-memory profile type — no database fields
 export type InterviewProfile = {
   id: string
-  user_id: string
   role_title: string
   company_name: string | null
   hourly_rate: string | null
@@ -11,11 +11,4 @@ export type InterviewProfile = {
   max_tokens: number
   temperature: number
   created_at: string
-}
-
-export type ActiveSession = {
-  user_id: string
-  active_profile_id: string | null
-  is_desktop_connected: boolean
-  updated_at: string
 }
