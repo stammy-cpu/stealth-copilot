@@ -1,12 +1,4 @@
-import Sidebar from '@/components/Sidebar'
-
+// Dashboard layout — no sidebar, Topbar is embedded inside PreparationHub
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-screen" style={{ backgroundColor: '#080b11' }}>
-      <Sidebar />
-      <main className="flex-1 ml-60 p-8 min-h-screen">
-        {children}
-      </main>
-    </div>
-  )
+  return <>{children}</>
 }

@@ -1,219 +1,566 @@
 'use client'
 
-import { useState } from 'react'
-import { Monitor, Wifi, WifiOff, RefreshCw, Briefcase, DollarSign, Clock, Zap } from 'lucide-react'
-import Link from 'next/link'
+import { useState, useCallback, useRef } from 'react'
+import { useDropzone } from 'react-dropzone'
+import {
+  FileText, Upload, Briefcase, DollarSign,
+  Zap, CheckCircle2, Loader2, ChevronDown, ChevronUp,
+  Link as LinkIcon, X, Star, Clock,
+} from 'lucide-react'
+import Topbar from '@/components/Topbar'
 
-// In-memory profile shape (no DB)
-export type LocalProfile = {
+// ── Types ──────────────────────────────────────────────────────────────────────
+type SavedInterview = {
   id: string
-  role_title: string
-  company_name?: string
-  hourly_rate?: string
-  system_prompt?: string
-  vad_silence_threshold: number
-  max_tokens: number
-  temperature: number
-  created_at: string
+  role: string
+  company: string
+  selected?: boolean
 }
 
-export default function DashboardClient() {
-  const [profiles]     = useState<LocalProfile[]>([])
-  const [active]       = useState<LocalProfile | null>(null)
-  const [isOnline]     = useState(false)
-  const [synced, setSynced] = useState(false)
+type CopilotState = 'idle' | 'activating-1' | 'activating-2' | 'active'
 
-  function handleSync() {
-    setSynced(true)
-    setTimeout(() => setSynced(false), 2500)
+// ── Saved interviews demo data ─────────────────────────────────────────────────
+const DEMO_INTERVIEWS: SavedInterview[] = [
+  { id: '1', role: 'Product Manager', company: 'Notion', selected: true },
+  { id: '2', role: 'Customer Success', company: 'Intercom' },
+  { id: '3', role: 'Operations Lead', company: 'Figma' },
+]
+
+// ── Preparation step progress indicator ───────────────────────────────────────
+function StepIndicator({ step, active, done }: { step: number; active: boolean; done: boolean }) {
+  return (
+    <div
+      className="step-number"
+      style={done ? {
+        background: 'rgba(69,212,155,0.15)',
+        border: '1px solid rgba(69,212,155,0.35)',
+        color: 'var(--emerald)',
+      } : active ? {
+        background: 'rgba(69,212,155,0.1)',
+        border: '1px solid rgba(69,212,155,0.25)',
+        color: 'var(--emerald)',
+      } : {}}
+    >
+      {done ? <CheckCircle2 className="w-3.5 h-3.5" /> : step}
+    </div>
+  )
+}
+
+export default function PreparationHub() {
+  // Form state
+  const [resumeText, setResumeText]   = useState('')
+  const [fileName,   setFileName]     = useState('')
+  const [jdText,     setJdText]       = useState('')
+  const [roleTitle,  setRoleTitle]    = useState('')
+  const [company,    setCompany]      = useState('')
+  const [rate,       setRate]         = useState('')
+  const [linkUrl,    setLinkUrl]      = useState('')
+  const [parsing,    setParsing]      = useState(false)
+
+  // Copilot state
+  const [copilotState, setCopilotState] = useState<CopilotState>('idle')
+  const [generated,    setGenerated]   = useState('')
+  const [generating,   setGenerating]  = useState(false)
+  const [strategyOpen, setStrategyOpen] = useState(false)
+  const [genError,     setGenError]    = useState('')
+
+  // Saved interviews
+  const [savedInterviews, setSavedInterviews] = useState<SavedInterview[]>(DEMO_INTERVIEWS)
+  const [activeInterview, setActiveInterview] = useState<string>('1')
+
+  // Step completion
+  const step1Done = !!resumeText || !!linkUrl
+  const step2Done = !!jdText.trim()
+  const step3Done = !!roleTitle.trim()
+  const allReady  = step1Done && step2Done && step3Done
+  const isActive  = copilotState === 'active'
+
+  // ── Dropzone ────────────────────────────────────────────────────────────────
+  const onDrop = useCallback((files: File[]) => {
+    const file = files[0]
+    if (!file) return
+    setFileName(file.name)
+    const reader = new FileReader()
+    reader.onload = e => setResumeText(e.target?.result as string ?? '')
+    reader.readAsText(file)
+  }, [])
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'text/plain': ['.txt'], 'application/pdf': ['.pdf'] },
+    maxFiles: 1, multiple: false,
+  })
+
+  // ── URL parse sim ───────────────────────────────────────────────────────────
+  async function parseLink() {
+    if (!linkUrl.trim()) return
+    setParsing(true)
+    await new Promise(r => setTimeout(r, 1800))
+    setJdText(`[Parsed from ${linkUrl}]\n\nWe are looking for a ${roleTitle || 'talented professional'} to join our team...`)
+    setParsing(false)
+  }
+
+  // ── Activate copilot ────────────────────────────────────────────────────────
+  async function activate() {
+    if (!allReady || copilotState !== 'idle') return
+    setCopilotState('activating-1')
+    await new Promise(r => setTimeout(r, 1000))
+    setCopilotState('activating-2')
+    await new Promise(r => setTimeout(r, 1000))
+    // Generate prompt
+    setGenerating(true); setGenError('')
+    try {
+      const res = await fetch('/api/generate-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cvText: resumeText, jdText, roleTitle, company, rate }),
+      })
+      if (!res.ok) {
+        const e = await res.json()
+        throw new Error(e.error ?? 'Generation failed')
+      }
+      const data = await res.json()
+      setGenerated(data.system_prompt ?? '')
+    } catch (err: unknown) {
+      setGenError(err instanceof Error ? err.message : 'Generation failed')
+    } finally {
+      setGenerating(false)
+    }
+    setCopilotState('active')
+  }
+
+  function deactivate() {
+    setCopilotState('idle')
+    setStrategyOpen(false)
+  }
+
+  const selectedInterview = savedInterviews.find(i => i.id === activeInterview)
+
+  // ── Activation button label ─────────────────────────────────────────────────
+  const activationLabel = () => {
+    if (copilotState === 'activating-1') return 'Initialising...'
+    if (copilotState === 'activating-2') return 'Loading strategy...'
+    if (isActive) return 'Copilot Active — Click to Stop'
+    return allReady ? 'Activate Copilot' : 'Complete preparation steps to activate'
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
+    <div className="app-shell">
+      <Topbar isDesktopConnected={false} />
 
-      {/* ── Page header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between">
-        <div>
+      <main
+        className="relative z-10 mx-auto px-7 pb-16"
+        style={{ maxWidth: 1120, paddingTop: 40 }}
+      >
+        {/* ── Page title ──────────────────────────────────────────────────────── */}
+        <div className="mb-8">
           <h1
-            className="text-2xl font-bold"
-            style={{ fontFamily: 'var(--font-jakarta)', color: '#f8fafc' }}
+            style={{
+              fontSize: 'clamp(28px, 4vw, 34px)',
+              fontFamily: 'var(--font-heading)',
+              color: 'var(--text-primary)',
+              fontWeight: 800,
+              letterSpacing: '-0.02em',
+            }}
           >
-            Interview Studio
+            Preparation Hub
           </h1>
-          <p className="text-sm mt-1" style={{ color: '#94a3b8' }}>
-            Manage your active copilot configuration
+          <p style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 6 }}>
+            Set up your interview details and activate the AI co-pilot — it stays hidden from screen sharing.
           </p>
         </div>
 
-        {/* Desktop connection badge */}
-        <div
-          className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium"
-          style={isOnline ? {
-            background: 'rgba(16,185,129,0.12)',
-            border: '1px solid rgba(16,185,129,0.3)',
-            color: '#10b981',
-          } : {
-            background: 'rgba(100,116,139,0.1)',
-            border: '1px solid rgba(100,116,139,0.2)',
-            color: '#64748b',
-          }}
-        >
-          <span
-            className="w-2 h-2 rounded-full"
-            style={{ background: isOnline ? '#10b981' : '#475569' }}
-          />
-          {isOnline
-            ? <><Wifi className="w-3.5 h-3.5" />Desktop Online</>
-            : <><WifiOff className="w-3.5 h-3.5" />Desktop Offline</>
-          }
-        </div>
-      </div>
-
-      {/* ── Active profile banner ────────────────────────────────────────────── */}
-      <div
-        className="relative rounded-[10px] overflow-hidden"
-        style={active ? {
-          background: 'rgba(15,23,42,0.75)',
-          backdropFilter: 'blur(12px)',
-          border: '1px solid rgba(99,102,241,0.2)',
-          boxShadow: '0 0 40px -10px rgba(99,102,241,0.15)',
-        } : {
-          background: 'rgba(15,23,42,0.75)',
-          backdropFilter: 'blur(12px)',
-          border: '1px solid rgba(255,255,255,0.08)',
-        }}
-      >
-        <div className="relative p-6 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div
-              className="w-12 h-12 rounded-[10px] flex items-center justify-center flex-shrink-0"
-              style={active ? {
-                background: 'rgba(99,102,241,0.15)',
-                border: '1px solid rgba(99,102,241,0.25)',
-              } : {
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.08)',
-              }}
-            >
-              <Monitor className="w-6 h-6" style={{ color: active ? '#6366f1' : '#64748b' }} />
-            </div>
-
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-widest mb-0.5" style={{ color: '#64748b' }}>
-                Active Profile
+        {/* ── Copilot status banner ─────────────────────────────────────────── */}
+        {isActive ? (
+          <div className="status-banner mb-8">
+            <span
+              className="w-2.5 h-2.5 rounded-full flex-shrink-0 pulse-dot"
+              style={{ background: 'var(--emerald)' }}
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                Copilot Active &amp; Listening
               </p>
-              {active ? (
-                <>
-                  <h2 className="text-lg font-bold" style={{ fontFamily: 'var(--font-jakarta)', color: '#f8fafc' }}>
-                    {active.role_title}
-                  </h2>
-                  <div className="flex items-center gap-4 mt-1.5">
-                    {active.company_name && (
-                      <span className="flex items-center gap-1 text-xs" style={{ color: '#94a3b8' }}>
-                        <Briefcase className="w-3 h-3" /> {active.company_name}
-                      </span>
-                    )}
-                    {active.hourly_rate && (
-                      <span className="flex items-center gap-1 text-xs font-medium" style={{ color: '#10b981' }}>
-                        <DollarSign className="w-3 h-3" /> {active.hourly_rate}/hr
-                      </span>
-                    )}
-                    <span className="flex items-center gap-1 text-xs font-mono" style={{ color: '#06b6d4' }}>
-                      <Clock className="w-3 h-3" /> VAD {active.vad_silence_threshold}s
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <p className="text-sm" style={{ color: '#64748b' }}>
-                  No profile loaded —{' '}
-                  <Link href="/generate" style={{ color: '#6366f1' }} className="hover:underline">
-                    generate one
-                  </Link>
+              {selectedInterview && (
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                  {selectedInterview.role} · {selectedInterview.company}
                 </p>
               )}
             </div>
-          </div>
-
-          {active && (
-            <button
-              onClick={handleSync}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-[10px] text-sm font-semibold"
-              style={synced ? {
-                background: 'rgba(16,185,129,0.15)',
-                border: '1px solid rgba(16,185,129,0.3)',
-                color: '#10b981',
-                transition: 'all 150ms ease-in-out',
-              } : {
-                background: '#6366f1',
-                color: '#ffffff',
-                border: 'none',
-                boxShadow: '0 0 20px -3px rgba(99,102,241,0.4)',
-                transition: 'all 150ms ease-in-out',
-                cursor: 'pointer',
+            <div
+              className="text-xs font-semibold px-3 py-1.5 rounded-full"
+              style={{
+                background: 'rgba(69,212,155,0.1)',
+                border: '1px solid rgba(69,212,155,0.2)',
+                color: 'var(--emerald)',
               }}
             >
-              <RefreshCw className="w-4 h-4" />
-              {synced ? 'Synced!' : 'Push to Desktop'}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* ── Stats grid ───────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: 'Profiles (session)', value: profiles.length, accent: '#6366f1' },
-          { label: 'Max Tokens',         value: active?.max_tokens ?? '—', accent: '#06b6d4' },
-          { label: 'Temperature',        value: active?.temperature ?? '—', accent: '#8b5cf6' },
-        ].map(({ label, value, accent }) => (
-          <div
-            key={label}
-            className="rounded-[10px] p-5"
-            style={{
-              background: '#0f172a',
-              border: '1px solid rgba(255,255,255,0.08)',
-              boxShadow: '0 4px 20px -2px rgba(0,0,0,0.5)',
-            }}
-          >
-            <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#64748b' }}>
-              {label}
-            </p>
-            <p className="text-3xl font-bold font-mono" style={{ color: accent }}>{value}</p>
+              🔒 Hidden from Screen Sharing
+            </div>
           </div>
-        ))}
-      </div>
+        ) : null}
 
-      {/* ── Quick start CTA ──────────────────────────────────────────────────── */}
-      {profiles.length === 0 && (
+        {/* ── Three preparation steps ──────────────────────────────────────── */}
+        <div className="grid gap-4 mb-8" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+
+          {/* Step 1 — Resume */}
+          <div className="step-card">
+            <div className="flex items-center gap-3 mb-4">
+              <StepIndicator step={1} active={true} done={step1Done} />
+              <div>
+                <p className="eyebrow">Step 1</p>
+                <p className="text-sm font-semibold mt-0.5" style={{ color: 'var(--text-primary)' }}>Your Resume</p>
+              </div>
+            </div>
+
+            {!resumeText ? (
+              <>
+                {/* Drop zone */}
+                <div
+                  {...getRootProps()}
+                  className={`drop-surface p-5 text-center mb-3 ${isDragActive ? 'drag-over' : ''}`}
+                >
+                  <input {...getInputProps()} id="input-resume-file" />
+                  <Upload className="w-5 h-5 mx-auto mb-2" style={{ color: 'var(--text-muted)' }} />
+                  <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                    Drop CV here or click to browse
+                  </p>
+                  <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>TXT or PDF · max 10 MB</p>
+                </div>
+
+                {/* Paste fallback */}
+                <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Or paste CV text directly:</p>
+                <textarea
+                  id="textarea-resume-paste"
+                  className="field"
+                  style={{ minHeight: 72, fontSize: 12 }}
+                  placeholder="Paste your CV here..."
+                  value={resumeText}
+                  onChange={e => setResumeText(e.target.value)}
+                />
+              </>
+            ) : (
+              <div
+                className="flex items-center gap-3 p-3 rounded-lg"
+                style={{ background: 'rgba(69,212,155,0.07)', border: '1px solid rgba(69,212,155,0.2)' }}
+              >
+                <FileText className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--emerald)' }} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                    {fileName || 'Resume pasted'}
+                  </p>
+                  <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                    {resumeText.length.toLocaleString()} characters
+                  </p>
+                </div>
+                <button
+                  onClick={() => { setResumeText(''); setFileName('') }}
+                  className="text-xs p-1 rounded"
+                  style={{ color: 'var(--text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                  aria-label="Remove resume"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Step 2 — Interview Details */}
+          <div className="step-card">
+            <div className="flex items-center gap-3 mb-4">
+              <StepIndicator step={2} active={step1Done} done={step2Done} />
+              <div>
+                <p className="eyebrow">Step 2</p>
+                <p className="text-sm font-semibold mt-0.5" style={{ color: 'var(--text-primary)' }}>Interview Details</p>
+              </div>
+            </div>
+
+            {/* Link parse */}
+            <div className="flex gap-2 mb-3">
+              <input
+                id="input-job-link"
+                type="url"
+                className="field"
+                placeholder="Paste job listing URL…"
+                value={linkUrl}
+                onChange={e => setLinkUrl(e.target.value)}
+              />
+              <button
+                onClick={parseLink}
+                disabled={parsing || !linkUrl.trim()}
+                className="ghost-action flex-shrink-0"
+                style={{ height: 38, padding: '0 12px', fontSize: 12 }}
+              >
+                {parsing ? <Loader2 className="w-3.5 h-3.5 spin" /> : <LinkIcon className="w-3.5 h-3.5" />}
+                <span>{parsing ? 'Parsing…' : 'Parse'}</span>
+              </button>
+            </div>
+
+            <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>Or paste job description:</p>
+            <textarea
+              id="textarea-job-description"
+              className="field"
+              style={{ minHeight: 90, fontSize: 12 }}
+              placeholder="Paste the full job description here…"
+              value={jdText}
+              onChange={e => setJdText(e.target.value)}
+            />
+          </div>
+
+          {/* Step 3 — Role Info */}
+          <div className="step-card">
+            <div className="flex items-center gap-3 mb-4">
+              <StepIndicator step={3} active={step2Done} done={step3Done} />
+              <div>
+                <p className="eyebrow">Step 3</p>
+                <p className="text-sm font-semibold mt-0.5" style={{ color: 'var(--text-primary)' }}>Role Information</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>
+                  <span className="flex items-center gap-1"><Briefcase className="w-3 h-3" /> Job title</span>
+                </label>
+                <input
+                  id="input-role-title"
+                  className="field"
+                  placeholder="e.g. Product Manager"
+                  value={roleTitle}
+                  onChange={e => setRoleTitle(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Company</label>
+                <input
+                  id="input-company"
+                  className="field"
+                  placeholder="Company name"
+                  value={company}
+                  onChange={e => setCompany(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs mb-1.5" style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>
+                  <span className="flex items-center gap-1"><DollarSign className="w-3 h-3" /> Hourly rate (optional)</span>
+                </label>
+                <input
+                  id="input-rate"
+                  className="field"
+                  placeholder="e.g. 75"
+                  value={rate}
+                  onChange={e => setRate(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Resume and interview cards ─────────────────────────────────────── */}
+        <div className="grid gap-6 mb-8" style={{ gridTemplateColumns: '1fr 1fr' }}>
+
+          {/* Resume summary card */}
+          <div className="panel p-5">
+            <p className="eyebrow mb-3">Resume</p>
+            {resumeText ? (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <FileText className="w-4 h-4" style={{ color: 'var(--emerald)' }} />
+                  <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    {fileName || 'Pasted resume'}
+                  </p>
+                </div>
+                <p
+                  className="text-xs line-clamp-4"
+                  style={{ color: 'var(--text-secondary)', lineHeight: 1.7 }}
+                >
+                  {resumeText.slice(0, 280)}{resumeText.length > 280 ? '…' : ''}
+                </p>
+                <button
+                  onClick={() => { setResumeText(''); setFileName('') }}
+                  className="text-xs mt-3"
+                  style={{ color: 'var(--emerald)', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 500 }}
+                >
+                  Change resume
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 py-4">
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)' }}
+                >
+                  <FileText className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
+                </div>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No resume uploaded yet</p>
+              </div>
+            )}
+          </div>
+
+          {/* Interview details summary card */}
+          <div className="panel p-5">
+            <p className="eyebrow mb-3">Interview Details</p>
+            {roleTitle || company ? (
+              <div className="space-y-2">
+                {roleTitle && (
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
+                    <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{roleTitle}</p>
+                  </div>
+                )}
+                {company && (
+                  <p className="text-sm" style={{ color: 'var(--text-secondary)', paddingLeft: 18 }}>{company}</p>
+                )}
+                {rate && (
+                  <p className="text-xs font-mono" style={{ color: 'var(--emerald)', paddingLeft: 18 }}>${rate}/hr</p>
+                )}
+                {jdText && (
+                  <p className="text-xs mt-2 line-clamp-3" style={{ color: 'var(--text-secondary)', lineHeight: 1.7, paddingLeft: 18 }}>
+                    {jdText.slice(0, 200)}{jdText.length > 200 ? '…' : ''}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 py-4">
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)' }}
+                >
+                  <Briefcase className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
+                </div>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Fill in role information above</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Saved interview strip ────────────────────────────────────────── */}
+        {savedInterviews.length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-3">
+              <p className="eyebrow">Saved Interviews</p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Quick switch</p>
+            </div>
+            <div className="interview-strip">
+              {savedInterviews.map(iv => (
+                <button
+                  key={iv.id}
+                  id={`chip-interview-${iv.id}`}
+                  onClick={() => setActiveInterview(iv.id)}
+                  className={`interview-chip ${activeInterview === iv.id ? 'selected' : ''}`}
+                >
+                  <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                    {iv.role}
+                  </p>
+                  <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>
+                    {iv.company}
+                  </p>
+                  {activeInterview === iv.id && (
+                    <div className="flex items-center gap-1 mt-1">
+                      <CheckCircle2 className="w-3 h-3" style={{ color: 'var(--emerald)' }} />
+                      <span className="text-[10px]" style={{ color: 'var(--emerald)' }}>Selected</span>
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Activation card ──────────────────────────────────────────────── */}
         <div
-          className="rounded-[10px] p-8 text-center"
-          style={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.08)' }}
+          className="panel p-6 mb-6"
+          style={isActive ? {
+            borderColor: 'rgba(69,212,155,0.25)',
+            background: 'rgba(69,212,155,0.03)',
+          } : {}}
         >
-          <div
-            className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"
-            style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)' }}
-          >
-            <Zap className="w-6 h-6" style={{ color: '#6366f1' }} />
+          <div className="flex items-center justify-between gap-6">
+            <div>
+              <h3
+                style={{
+                  fontFamily: 'var(--font-heading)',
+                  fontSize: 16,
+                  fontWeight: 700,
+                  color: 'var(--text-primary)',
+                  marginBottom: 4,
+                }}
+              >
+                {isActive ? 'Copilot is running' : 'Ready to activate?'}
+              </h3>
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                {isActive
+                  ? 'The AI is listening and ready to help with your interview answers.'
+                  : 'Complete all three steps above, then activate the co-pilot.'}
+              </p>
+              {genError && (
+                <p className="text-xs mt-2" style={{ color: 'var(--status-error)' }}>{genError}</p>
+              )}
+            </div>
+
+            <button
+              id="btn-activate-copilot"
+              onClick={isActive ? deactivate : activate}
+              disabled={!isActive && (!allReady || copilotState === 'activating-1' || copilotState === 'activating-2' || generating)}
+              className="primary-action flex-shrink-0"
+              style={{
+                minWidth: 180,
+                ...(isActive ? {
+                  background: 'rgba(239,68,68,0.15)',
+                  color: '#ef4444',
+                  border: '1px solid rgba(239,68,68,0.3)',
+                  boxShadow: 'none',
+                } : {}),
+              }}
+            >
+              {(copilotState === 'activating-1' || copilotState === 'activating-2' || generating) && (
+                <Loader2 className="w-4 h-4 spin" />
+              )}
+              {isActive && !generating && <Zap className="w-4 h-4" />}
+              <span>{activationLabel()}</span>
+            </button>
           </div>
-          <h3 className="text-base font-semibold mb-1" style={{ color: '#f8fafc' }}>
-            No profiles yet
-          </h3>
-          <p className="text-sm mb-4" style={{ color: '#64748b' }}>
-            Use the AI Generator to build your first interview profile
-          </p>
-          <Link
-            href="/generate"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-[10px] text-sm font-semibold"
-            style={{
-              background: 'linear-gradient(90deg, #6366f1, #06b6d4)',
-              color: '#fff',
-              boxShadow: '0 0 20px -4px rgba(99,102,241,0.4)',
-            }}
-          >
-            <Zap className="w-4 h-4" /> Generate Profile
-          </Link>
         </div>
-      )}
+
+        {/* ── AI Interview Strategy (post-activation) ───────────────────────── */}
+        {isActive && generated && (
+          <div className="panel overflow-hidden">
+            <button
+              id="btn-toggle-strategy"
+              onClick={() => setStrategyOpen(v => !v)}
+              className="w-full flex items-center justify-between px-6 py-4"
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+            >
+              <div className="flex items-center gap-3">
+                <Star className="w-4 h-4" style={{ color: 'var(--emerald)' }} />
+                <span
+                  style={{ fontFamily: 'var(--font-heading)', fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}
+                >
+                  AI Interview Strategy
+                </span>
+              </div>
+              {strategyOpen
+                ? <ChevronUp className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                : <ChevronDown className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+              }
+            </button>
+
+            {strategyOpen && (
+              <div
+                className="px-6 pb-6"
+                style={{ borderTop: '1px solid var(--border-subtle)' }}
+              >
+                <p
+                  className="text-sm mt-4 whitespace-pre-wrap"
+                  style={{ color: 'var(--text-secondary)', lineHeight: 1.75 }}
+                >
+                  {generated}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </main>
     </div>
   )
 }

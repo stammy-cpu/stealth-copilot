@@ -1,21 +1,22 @@
 import type { Metadata } from 'next'
-import { Inter, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google'
+import { DM_Sans, Manrope, DM_Mono } from 'next/font/google'
 import './globals.css'
 
-const inter = Inter({
+const dmSans = DM_Sans({
   subsets: ['latin'],
-  variable: '--font-inter',
+  variable: '--font-sans',
   display: 'swap',
+  weight: ['400', '500', '600'],
 })
 
-const jakarta = Plus_Jakarta_Sans({
+const manrope = Manrope({
   subsets: ['latin'],
-  variable: '--font-jakarta',
+  variable: '--font-heading',
   display: 'swap',
-  weight: ['500', '600', '700'],
+  weight: ['600', '700', '800'],
 })
 
-const mono = JetBrains_Mono({
+const dmMono = DM_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
   display: 'swap',
@@ -23,20 +24,16 @@ const mono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Stealth Copilot — Control Panel',
-  description: 'AI-powered interview co-pilot control panel. Manage profiles, sync configurations, and monitor desktop agent status.',
-  keywords: ['AI interview', 'copilot', 'micro1', 'interview assistant'],
+  title: 'Stealth Copilot Studio',
+  description: 'A calm, private interview preparation workspace. Upload your resume, describe the role, and let AI guide your preparation.',
+  keywords: ['AI interview', 'interview preparation', 'copilot', 'interview coach'],
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
       <body
-        className={`
-          ${inter.variable} ${jakarta.variable} ${mono.variable}
-          font-sans antialiased min-h-screen
-        `}
-        style={{ backgroundColor: '#080b11', color: '#f8fafc' }}
+        className={`${dmSans.variable} ${manrope.variable} ${dmMono.variable} antialiased min-h-screen`}
       >
         {children}
       </body>
