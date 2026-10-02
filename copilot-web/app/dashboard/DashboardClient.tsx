@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
 import {
   FileText, Upload, Briefcase, DollarSign,
   Zap, CheckCircle2, Loader2, ChevronDown, ChevronUp,
-  Link as LinkIcon, X, Star, Clock,
+  Link as LinkIcon, X, Star,
 } from 'lucide-react'
 import Topbar from '@/components/Topbar'
 
@@ -65,7 +65,7 @@ export default function PreparationHub() {
   const [genError,     setGenError]    = useState('')
 
   // Saved interviews
-  const [savedInterviews, setSavedInterviews] = useState<SavedInterview[]>(DEMO_INTERVIEWS)
+  const [savedInterviews] = useState<SavedInterview[]>(DEMO_INTERVIEWS)
   const [activeInterview, setActiveInterview] = useState<string>('1')
 
   // Step completion

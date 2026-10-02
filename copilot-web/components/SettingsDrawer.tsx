@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { X, Key, Mic, MessageSquare, Wifi, Keyboard, ChevronDown } from 'lucide-react'
+import { X, Key, Mic, MessageSquare, Wifi } from 'lucide-react'
 
 type Props = {
   open: boolean
