@@ -2,14 +2,13 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import {
-  Link2, FileText, Target, Cpu, CheckCircle2,
-  Upload, X, ChevronRight, ChevronLeft, Zap,
-  AlignLeft, BookOpen, Radio, Loader2, SkipForward,
-  Briefcase, Building2, ListChecks, Star,
-  Mic, MicOff, Save, Play,
+  Link2, FileText, Cpu, Mic, CheckCircle2, Upload, X,
+  ChevronRight, ChevronLeft, Zap, AlignLeft, BookOpen, Radio,
+  Loader2, SkipForward, Target, Building2, ListChecks, Star,
+  MicOff, Save, Play, Sparkles, Briefcase,
 } from 'lucide-react'
 
-// ─── Types ─────────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type AssistanceMode = 'teleprompter' | 'coach' | 'adaptive'
 
@@ -27,202 +26,103 @@ export type WizardConfig = {
 }
 
 type Props = {
-  onComplete: (config: WizardConfig) => void
-  onDismiss?: () => void
+  onComplete:  (config: WizardConfig) => void
+  onDismiss?:  () => void
 }
 
-// ─── Design tokens (matching globals.css) ──────────────────────────────────────
-
-const T = {
-  bgApp:       'hsl(225 11% 8%)',
-  bgCard:      '#171a20',
-  bgInput:     '#111318',
-  border:      'hsl(220 10% 21%)',
-  borderSubtle:'rgba(255 255 255 / 0.06)',
-  emerald:     '#45d49b',
-  emeraldHov:  '#63e5b1',
-  emeraldText: '#092017',
-  emeraldTint: 'rgba(69 212 155 / 0.07)',
-  emeraldBdr:  'rgba(69 212 155 / 0.3)',
-  emeraldGlow: 'rgba(69 212 155 / 0.22)',
-  textPri:     'hsl(210 18% 93%)',
-  textSec:     'hsl(215 15% 65%)',
-  textMut:     'hsl(215 14% 45%)',
-  fontHead:    'var(--font-heading)',
-  fontSans:    'var(--font-sans)',
-  fontMono:    'var(--font-mono)',
-} as const
-
-// ─── Step metadata ─────────────────────────────────────────────────────────────
+// ─── Step metadata ────────────────────────────────────────────────────────────
 
 const STEPS = [
   { id: 1, label: 'Interview Link', icon: Link2 },
-  { id: 2, label: 'Your Resume',    icon: FileText },
+  { id: 2, label: 'Resume',         icon: FileText },
   { id: 3, label: 'Context',        icon: Target },
-  { id: 4, label: 'Support Style',  icon: Cpu },
-  { id: 5, label: 'Ready to Go',   icon: CheckCircle2 },
+  { id: 4, label: 'Assist Mode',    icon: Cpu },
+  { id: 5, label: 'Pre-Flight',     icon: CheckCircle2 },
 ]
 
-// ─── Assistance modes ──────────────────────────────────────────────────────────
+// ─── Emerald gradient constants ───────────────────────────────────────────────
+
+const EM = {
+  grad:     'linear-gradient(90deg, #10B981, #34D399)',
+  gradDiag: 'linear-gradient(135deg, #10B981, #34D399)',
+  glow:     'rgba(16,185,129,0.25)',
+  glowStr:  'rgba(16,185,129,0.45)',
+  border:   'rgba(16,185,129,0.35)',
+  bg:       'rgba(16,185,129,0.08)',
+  text:     '#10b981',
+  textDark: '#064E3B',
+  shadow:   '0 0 30px -6px rgba(16,185,129,0.35)',
+  pill: {
+    bg:     'rgba(16,185,129,0.12)',
+    color:  '#10b981',
+    border: 'rgba(16,185,129,0.3)',
+  },
+} as const
+
+// ─── Assistance modes ─────────────────────────────────────────────────────────
 
 const MODES = [
   {
     id: 'teleprompter' as AssistanceMode,
     icon: AlignLeft,
-    label: 'Teleprompter',
-    tag: 'COMPACT',
-    desc: 'Concise bullet points you can read in real time during the call. Fast, clear, and discreet.',
+    label: 'Teleprompter / Compact',
+    tag: 'DEFAULT',
+    tagColor: EM.text,
+    tagBg: EM.pill.bg,
+    desc: 'Concise bullet points and fast talking points optimised for live reading during a call. Minimal latency, maximum clarity.',
   },
   {
     id: 'coach' as AssistanceMode,
     icon: BookOpen,
-    label: 'Detailed Prep',
+    label: 'Detailed Prep / Coach',
     tag: 'DEEP DIVE',
-    desc: 'Thorough explanations with context and examples. Great for technical or senior-level interviews.',
+    tagColor: '#34D399',
+    tagBg: 'rgba(52,211,153,0.12)',
+    desc: 'Deep technical breakdowns, structured frameworks, and detailed context for senior-level interviews.',
   },
   {
     id: 'adaptive' as AssistanceMode,
     icon: Radio,
-    label: 'Live Copilot',
+    label: 'Live Adaptive Copilot',
     tag: 'REAL-TIME',
-    desc: 'Responds dynamically as the interviewer speaks. Best used with a microphone.',
+    tagColor: '#6EE7B7',
+    tagBg: 'rgba(110,231,183,0.1)',
+    desc: 'Real-time audio transcription mode with dynamic prompt generation based on what the interviewer says.',
   },
 ]
 
-// ─── Sub-components ────────────────────────────────────────────────────────────
-
-function EyebrowLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p style={{
-      fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-      letterSpacing: '0.12em', color: T.textMut,
-      fontFamily: T.fontSans, marginBottom: 6,
-    }}>
-      {children}
-    </p>
-  )
-}
-
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <label style={{
-      display: 'block', fontSize: 12, fontWeight: 500,
-      color: T.textSec, fontFamily: T.fontSans, marginBottom: 6,
-    }}>
-      {children}
-    </label>
-  )
-}
-
-function WizardInput({
-  value, onChange, placeholder, type = 'text', onKeyDown,
-}: {
-  value: string
-  onChange: (v: string) => void
-  placeholder: string
-  type?: string
-  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void
-}) {
-  return (
-    <input
-      type={type}
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      onKeyDown={onKeyDown}
-      placeholder={placeholder}
-      style={{
-        width: '100%',
-        background: T.bgInput,
-        border: `1px solid ${T.border}`,
-        borderRadius: 8,
-        padding: '0 12px',
-        height: 38,
-        color: T.textPri,
-        fontSize: 13,
-        fontFamily: T.fontSans,
-        outline: 'none',
-        transition: 'border-color 150ms ease, box-shadow 150ms ease',
-      }}
-      onFocus={e => {
-        e.target.style.borderColor = T.emeraldBdr
-        e.target.style.boxShadow = `0 0 0 3px rgba(69 212 155 / 0.1)`
-      }}
-      onBlur={e => {
-        e.target.style.borderColor = T.border
-        e.target.style.boxShadow = 'none'
-      }}
-    />
-  )
-}
-
-function WizardTextarea({
-  value, onChange, placeholder, rows = 3,
-}: {
-  value: string
-  onChange: (v: string) => void
-  placeholder: string
-  rows?: number
-}) {
-  return (
-    <textarea
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      placeholder={placeholder}
-      rows={rows}
-      style={{
-        width: '100%',
-        background: T.bgInput,
-        border: `1px solid ${T.border}`,
-        borderRadius: 8,
-        padding: '10px 12px',
-        color: T.textPri,
-        fontSize: 13,
-        fontFamily: T.fontSans,
-        outline: 'none',
-        resize: 'vertical',
-        lineHeight: 1.6,
-        transition: 'border-color 150ms ease, box-shadow 150ms ease',
-      }}
-      onFocus={e => {
-        e.target.style.borderColor = T.emeraldBdr
-        e.target.style.boxShadow = `0 0 0 3px rgba(69 212 155 / 0.1)`
-      }}
-      onBlur={e => {
-        e.target.style.borderColor = T.border
-        e.target.style.boxShadow = 'none'
-      }}
-    />
-  )
-}
+// ─── Toggle switch ─────────────────────────────────────────────────────────────
 
 function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
   return (
     <button
       onClick={onToggle}
-      role="switch"
       aria-checked={on}
+      role="switch"
       style={{
         width: 44, height: 24,
         borderRadius: 9999,
-        background: on ? T.emerald : T.border,
-        border: `1px solid ${on ? T.emerald : T.border}`,
+        background: on ? EM.grad : '#1e293b',
+        border: on ? `1px solid ${EM.text}` : '1px solid rgba(255,255,255,0.12)',
         position: 'relative',
+        transition: 'all 200ms ease-in-out',
         cursor: 'pointer',
         flexShrink: 0,
         outline: 'none',
-        transition: 'background 200ms ease, box-shadow 200ms ease',
-        boxShadow: on ? `0 0 10px -2px ${T.emeraldGlow}` : 'none',
+        boxShadow: on ? `0 0 12px -2px ${EM.glow}` : 'none',
       }}
     >
-      <span style={{
-        position: 'absolute',
-        top: 3, left: on ? 23 : 3,
-        width: 16, height: 16,
-        borderRadius: 9999,
-        background: on ? T.emeraldText : T.textMut,
-        transition: 'left 200ms ease',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
-      }} />
+      <span
+        style={{
+          position: 'absolute',
+          top: 3, left: on ? 23 : 3,
+          width: 16, height: 16,
+          borderRadius: 9999,
+          background: '#fff',
+          transition: 'left 200ms ease-in-out',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+        }}
+      />
     </button>
   )
 }
@@ -230,7 +130,7 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export default function InterviewSetupWizard({ onComplete, onDismiss }: Props) {
-  const [step,    setStep]    = useState(1)
+  const [step, setStep]       = useState(1)
   const [leaving, setLeaving] = useState(false)
 
   // Step 1
@@ -260,7 +160,7 @@ export default function InterviewSetupWizard({ onComplete, onDismiss }: Props) {
   const [micTesting, setMicTesting] = useState(false)
   const [micOk,      setMicOk]      = useState(false)
 
-  // ── Animate match score on step 3 ───────────────────────────────────────────
+  // ── Animate match score when step 3 renders ──────────────────────────────
   useEffect(() => {
     if (step === 3 && !scoreAnimated) {
       const target = jobRole ? 88 : 72
@@ -274,28 +174,28 @@ export default function InterviewSetupWizard({ onComplete, onDismiss }: Props) {
     }
   }, [step, jobRole, scoreAnimated])
 
-  // ── Navigation ───────────────────────────────────────────────────────────────
+  // ── Navigation ───────────────────────────────────────────────────────────
   function goTo(next: number) {
     setLeaving(true)
-    setTimeout(() => { setStep(next); setLeaving(false) }, 160)
+    setTimeout(() => { setStep(next); setLeaving(false) }, 180)
   }
-  const goBack = () => step > 1 && goTo(step - 1)
-  const goNext = () => step < 5 && goTo(step + 1)
+  const back = () => step > 1 && goTo(step - 1)
+  const next = () => step < 5 && goTo(step + 1)
 
-  // ── Step 1: Parse URL sim ────────────────────────────────────────────────────
+  // ── Step 1: Parse URL ────────────────────────────────────────────────────
   function handleParse() {
     if (!url.trim()) return
     setParsing(true); setParsed(false)
     setTimeout(() => {
       const u = url.toLowerCase()
-      if (u.includes('linkedin'))      { setJobRole(p => p || 'Senior Product Manager'); setCompanyName(p => p || 'LinkedIn') }
-      else if (u.includes('micro1'))   { setJobRole(p => p || 'AI Evaluator'); setCompanyName(p => p || 'micro1'); setKeyFocus(p => p || 'LLM quality, prompt evaluation') }
-      else                             { setJobRole(p => p || 'Software Engineer'); setCompanyName(p => p || 'Target Company') }
+      if (u.includes('linkedin'))    { setJobRole(p => p || 'Senior Software Engineer'); setCompanyName(p => p || 'LinkedIn') }
+      else if (u.includes('micro1')) { setJobRole(p => p || 'AI Trainer / Evaluator'); setCompanyName(p => p || 'micro1'); setKeyFocus(p => p || 'LLM evaluation, prompt engineering, code auditing') }
+      else                           { setJobRole(p => p || 'Software Engineer'); setCompanyName(p => p || 'Target Company') }
       setParsing(false); setParsed(true)
     }, 2200)
   }
 
-  // ── Step 2: File handling ────────────────────────────────────────────────────
+  // ── Step 2: File drop ────────────────────────────────────────────────────
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault(); setIsDragging(false)
     const file = e.dataTransfer.files?.[0]
@@ -308,7 +208,7 @@ export default function InterviewSetupWizard({ onComplete, onDismiss }: Props) {
     if (file) { setResumeFile(file); setResumeName(file.name) }
   }
 
-  // ── Step 5: Mic test ─────────────────────────────────────────────────────────
+  // ── Step 5: Mic test ────────────────────────────────────────────────────
   async function testMic() {
     setMicTesting(true); setMicOk(false)
     try {
@@ -317,78 +217,73 @@ export default function InterviewSetupWizard({ onComplete, onDismiss }: Props) {
     } catch { setMicTesting(false) }
   }
 
-  // ── Complete ─────────────────────────────────────────────────────────────────
+  // ── Complete ─────────────────────────────────────────────────────────────
   function handleComplete() {
     onComplete({
       targetUrl: url, resumeFile, resumeFileName: resumeName,
       jobRole, companyName, keyFocusAreas: keyFocus,
-      roleMatchScore: matchScore, assistanceMode: mode, micEnabled, saveAsPreset: savePreset,
+      roleMatchScore: matchScore, assistanceMode: mode,
+      micEnabled, saveAsPreset: savePreset,
     })
   }
 
-  const scoreColor = matchScore >= 80 ? T.emerald : matchScore >= 60 ? '#f59e0b' : '#ef4444'
+  // Score colour — always emerald once ≥60
+  const scoreColor = matchScore >= 80 ? EM.text : matchScore >= 60 ? '#34D399' : '#f59e0b'
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'rgba(10 12 17 / 0.88)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
+        background: 'rgba(8,11,17,0.92)',
+        backdropFilter: 'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)',
         padding: '1rem',
       }}
       onClick={e => { if (e.target === e.currentTarget) onDismiss?.() }}
     >
-      {/* ── Modal shell ─────────────────────────────────────────────────────── */}
+      {/* ── Modal shell ──────────────────────────────────────────────────── */}
       <div
         style={{
-          width: '100%', maxWidth: 660,
-          background: T.bgCard,
-          border: `1px solid ${T.border}`,
-          borderRadius: 16,
-          boxShadow: '0 32px 80px -8px rgba(0 0 0 / 0.7)',
+          width: '100%', maxWidth: 680,
+          background: '#0f172a',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 20,
+          boxShadow: '0 24px 80px -8px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)',
           overflow: 'hidden',
           display: 'flex', flexDirection: 'column',
           maxHeight: '92vh',
-          position: 'relative',
+          transform: leaving ? 'scale(0.98) translateY(4px)' : 'scale(1) translateY(0)',
           opacity: leaving ? 0 : 1,
-          transform: leaving ? 'scale(0.98) translateY(6px)' : 'scale(1) translateY(0)',
-          transition: 'opacity 160ms ease, transform 160ms ease',
+          transition: 'all 180ms ease-in-out',
         }}
       >
-        {/* Emerald radial glow */}
-        <div style={{
-          position: 'absolute', top: 0, left: '50%',
-          transform: 'translateX(-50%)',
-          width: 500, height: 200, pointerEvents: 'none',
-          background: 'radial-gradient(ellipse at 50% 0%, rgba(69 212 155 / 0.08) 0%, transparent 65%)',
-        }} />
-
-        {/* ── Header ──────────────────────────────────────────────────────── */}
-        <div style={{
-          padding: '22px 26px 0',
-          borderBottom: `1px solid ${T.borderSubtle}`,
-          paddingBottom: 18,
-          position: 'relative',
-        }}>
+        {/* ── Header ──────────────────────────────────────────────────── */}
+        <div
+          style={{
+            padding: '24px 28px 0',
+            borderBottom: '1px solid rgba(255,255,255,0.06)',
+            paddingBottom: 20,
+          }}
+        >
           {/* Title row */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {/* Icon badge — emerald gradient */}
               <div style={{
-                width: 34, height: 34, borderRadius: 10,
-                background: 'rgba(69 212 155 / 0.1)',
-                border: `1px solid ${T.emeraldBdr}`,
+                width: 36, height: 36, borderRadius: 10,
+                background: EM.gradDiag,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: `0 0 20px -4px ${EM.glow}`,
               }}>
-                <Zap style={{ width: 16, height: 16, color: T.emerald }} />
+                <Zap style={{ width: 18, height: 18, color: EM.textDark }} />
               </div>
               <div>
-                <p style={{ fontFamily: T.fontHead, fontWeight: 700, fontSize: 15, color: T.textPri, lineHeight: 1.2, letterSpacing: '-0.01em' }}>
+                <p style={{ color: '#f8fafc', fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: 16, lineHeight: 1.2, letterSpacing: '-0.01em' }}>
                   Interview Setup
                 </p>
-                <p style={{ fontFamily: T.fontSans, fontSize: 11, color: T.textMut, marginTop: 2 }}>
+                <p style={{ color: '#64748b', fontSize: 11, marginTop: 2, fontFamily: 'var(--font-sans)' }}>
                   Step {step} of 5 — {STEPS[step - 1].label}
                 </p>
               </div>
@@ -396,77 +291,74 @@ export default function InterviewSetupWizard({ onComplete, onDismiss }: Props) {
 
             {onDismiss && (
               <button
-                id="btn-wizard-dismiss"
+                id="btn-wizard-close"
                 onClick={onDismiss}
-                aria-label="Close setup"
                 style={{
-                  width: 30, height: 30, borderRadius: 8,
-                  background: 'transparent',
-                  border: `1px solid ${T.border}`,
-                  color: T.textMut, cursor: 'pointer',
+                  width: 32, height: 32, borderRadius: 8,
+                  background: 'rgba(255,255,255,0.04)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: '#64748b', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'all 150ms ease',
+                  transition: 'all 150ms ease-in-out',
                 }}
-                onMouseOver={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#ef4444' }}
-                onMouseOut={e  => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.textMut }}
+                onMouseOver={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; e.currentTarget.style.color = '#ef4444' }}
+                onMouseOut={e  => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#64748b' }}
               >
-                <X style={{ width: 13, height: 13 }} />
+                <X style={{ width: 14, height: 14 }} />
               </button>
             )}
           </div>
 
-          {/* ── Step progress bar ─────────────────────────────────────────── */}
-          <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+          {/* ── 5-segment progress bar ──────────────────────────────────── */}
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             {STEPS.map((s, i) => {
               const active   = step === s.id
               const complete = step > s.id
               const Icon     = s.icon
               return (
                 <React.Fragment key={s.id}>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
-                    {/* Bar segment */}
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                    {/* Segment bar */}
                     <div style={{
                       width: '100%', height: 3, borderRadius: 9999,
                       background: complete
-                        ? T.emerald
+                        ? EM.text
                         : active
-                        ? `linear-gradient(90deg, ${T.emerald}, rgba(69 212 155 / 0.4))`
-                        : T.borderSubtle,
-                      transition: 'background 300ms ease',
-                      boxShadow: active ? `0 0 8px ${T.emeraldGlow}` : 'none',
+                        ? EM.grad
+                        : 'rgba(255,255,255,0.08)',
+                      transition: 'all 300ms ease-in-out',
+                      boxShadow: active ? `0 0 8px ${EM.glow}` : 'none',
                     }} />
-                    {/* Label + dot */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                    {/* Step label with icon dot */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <div style={{
-                        width: 16, height: 16, borderRadius: '50%',
-                        background: complete
-                          ? 'rgba(69 212 155 / 0.15)'
-                          : active
-                          ? 'rgba(69 212 155 / 0.1)'
-                          : 'rgba(255 255 255 / 0.03)',
-                        border: `1px solid ${complete || active ? T.emeraldBdr : T.border}`,
+                        width: 18, height: 18, borderRadius: '50%',
+                        background: complete ? EM.bg : active ? EM.bg : 'rgba(255,255,255,0.05)',
+                        border: complete || active
+                          ? `2px solid ${EM.border}`
+                          : '1px solid rgba(255,255,255,0.1)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'all 300ms ease',
+                        transition: 'all 300ms ease-in-out',
                         flexShrink: 0,
                       }}>
                         {complete
-                          ? <CheckCircle2 style={{ width: 9, height: 9, color: T.emerald }} />
-                          : <Icon style={{ width: 8, height: 8, color: active ? T.emerald : T.textMut }} />
+                          ? <CheckCircle2 style={{ width: 10, height: 10, color: EM.text }} />
+                          : <Icon style={{ width: 9, height: 9, color: active ? EM.text : '#334155' }} />
                         }
                       </div>
                       <span style={{
-                        fontSize: 9, fontWeight: active ? 600 : 400,
-                        fontFamily: T.fontSans,
-                        color: complete || active ? T.textSec : T.textMut,
+                        fontSize: 9.5, fontWeight: active ? 600 : 400,
+                        fontFamily: 'var(--font-sans)',
+                        color: complete ? EM.text : active ? '#f8fafc' : '#475569',
                         whiteSpace: 'nowrap',
-                        transition: 'color 300ms ease',
+                        transition: 'color 300ms ease-in-out',
                       }}>
                         {s.label}
                       </span>
                     </div>
                   </div>
                   {i < STEPS.length - 1 && (
-                    <div style={{ width: 1, height: 22, background: T.borderSubtle, flexShrink: 0 }} />
+                    <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)', flexShrink: 0 }} />
                   )}
                 </React.Fragment>
               )
@@ -474,33 +366,33 @@ export default function InterviewSetupWizard({ onComplete, onDismiss }: Props) {
           </div>
         </div>
 
-        {/* ── Step content ────────────────────────────────────────────────── */}
+        {/* ── Step body ────────────────────────────────────────────────── */}
         <div
           style={{
-            padding: '26px 26px 22px',
+            padding: '28px 28px 24px',
             overflowY: 'auto', flex: 1,
             opacity: leaving ? 0 : 1,
-            transform: leaving ? 'translateY(6px)' : 'translateY(0)',
-            transition: 'opacity 160ms ease, transform 160ms ease',
+            transform: leaving ? 'translateY(8px)' : 'translateY(0)',
+            transition: 'all 180ms ease-in-out',
           }}
         >
 
-          {/* ═══ STEP 1 — Interview Link ══════════════════════════════════════ */}
+          {/* ═══ STEP 1 ═════════════════════════════════════════════════ */}
           {step === 1 && (
             <div>
-              <h2 style={{ fontFamily: T.fontHead, color: T.textPri, fontSize: 20, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.015em' }}>
-                Paste the interview link
+              <h2 style={{ fontFamily: 'var(--font-heading)', color: '#f8fafc', fontSize: 20, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.015em' }}>
+                Target Interview Link
               </h2>
-              <p style={{ fontFamily: T.fontSans, color: T.textSec, fontSize: 13, marginBottom: 22, lineHeight: 1.65 }}>
-                Add a LinkedIn job post, job board listing, or company careers page. We&apos;ll pull out the role details automatically.
+              <p style={{ fontFamily: 'var(--font-sans)', color: '#94a3b8', fontSize: 13, marginBottom: 24, lineHeight: 1.6 }}>
+                Paste a LinkedIn job post, job board listing, or interview portal URL. We&apos;ll extract the role, company, and requirements automatically.
               </p>
 
               {/* URL input row */}
-              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
                 <div style={{ flex: 1, position: 'relative' }}>
                   <Link2 style={{
-                    position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)',
-                    width: 14, height: 14, color: T.textMut, pointerEvents: 'none',
+                    position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)',
+                    width: 15, height: 15, color: '#64748b', pointerEvents: 'none',
                   }} />
                   <input
                     id="input-wizard-url"
@@ -510,78 +402,76 @@ export default function InterviewSetupWizard({ onComplete, onDismiss }: Props) {
                     onKeyDown={e => e.key === 'Enter' && handleParse()}
                     placeholder="https://linkedin.com/jobs/view/..."
                     style={{
-                      width: '100%', paddingLeft: 34, paddingRight: 12,
-                      height: 40,
-                      background: T.bgInput,
-                      border: `1px solid ${parsed ? T.emeraldBdr : T.border}`,
-                      borderRadius: 8,
-                      color: T.textPri,
-                      fontSize: 13,
-                      fontFamily: T.fontMono,
+                      width: '100%', paddingLeft: 36, paddingRight: 14,
+                      paddingTop: 11, paddingBottom: 11,
+                      background: '#1e293b',
+                      border: `1px solid ${parsed ? EM.border : 'rgba(255,255,255,0.12)'}`,
+                      borderRadius: 10, color: '#f8fafc', fontSize: 13,
+                      fontFamily: 'var(--font-mono)',
                       outline: 'none',
-                      transition: 'border-color 150ms ease, box-shadow 150ms ease',
-                      boxShadow: parsed ? `0 0 0 3px rgba(69 212 155 / 0.1)` : 'none',
+                      transition: 'border-color 150ms ease-in-out',
+                      boxShadow: parsed ? `0 0 0 2px ${EM.glow}` : undefined,
                     }}
-                    onFocus={e => { if (!parsed) { e.target.style.borderColor = T.emeraldBdr; e.target.style.boxShadow = 'rgba(69 212 155 / 0.1) 0 0 0 3px' } }}
-                    onBlur={e  => { e.target.style.borderColor = parsed ? T.emeraldBdr : T.border; e.target.style.boxShadow = parsed ? 'rgba(69 212 155 / 0.1) 0 0 0 3px' : 'none' }}
+                    onFocus={e => { if (!parsed) { e.target.style.borderColor = EM.border; e.target.style.boxShadow = `0 0 0 2px ${EM.glow}` } }}
+                    onBlur={e  => { e.target.style.borderColor = parsed ? EM.border : 'rgba(255,255,255,0.12)'; e.target.style.boxShadow = parsed ? `0 0 0 2px ${EM.glow}` : 'none' }}
                   />
                 </div>
+
+                {/* Parse URL button — emerald gradient */}
                 <button
                   id="btn-wizard-parse"
                   onClick={handleParse}
                   disabled={!url.trim() || parsing}
                   style={{
-                    padding: '0 18px',
-                    height: 40, borderRadius: 8, border: 'none',
-                    background: !url.trim() || parsing ? 'rgba(69 212 155 / 0.3)' : T.emerald,
-                    color: T.emeraldText,
-                    fontSize: 13, fontWeight: 600, fontFamily: T.fontSans,
+                    padding: '11px 18px', borderRadius: 10, border: 'none',
+                    background: !url.trim() || parsing ? 'rgba(16,185,129,0.4)' : EM.grad,
+                    color: EM.textDark, fontSize: 13, fontWeight: 600,
+                    fontFamily: 'var(--font-sans)',
                     cursor: !url.trim() || parsing ? 'not-allowed' : 'pointer',
-                    display: 'flex', alignItems: 'center', gap: 6,
-                    transition: 'all 150ms ease',
+                    display: 'flex', alignItems: 'center', gap: 7,
+                    transition: 'all 150ms ease-in-out',
                     whiteSpace: 'nowrap',
-                    boxShadow: !url.trim() || parsing ? 'none' : `0 0 16px -3px ${T.emeraldGlow}`,
+                    boxShadow: parsing ? 'none' : `0 0 16px -3px ${EM.glow}`,
                   }}
                 >
                   {parsing
-                    ? <><Loader2 style={{ width: 13, height: 13, animation: 'spin 0.8s linear infinite' }} />Parsing…</>
+                    ? <><Loader2 style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} />Parsing…</>
                     : parsed
-                    ? <><CheckCircle2 style={{ width: 13, height: 13 }} />Fetched</>
-                    : 'Parse Link'
+                    ? <><CheckCircle2 style={{ width: 14, height: 14 }} />Parsed!</>
+                    : <><Sparkles style={{ width: 14, height: 14 }} />Parse URL</>
                   }
                 </button>
               </div>
 
-              {/* Parsing status */}
+              {/* Parsing feedback */}
               {parsing && (
                 <div style={{
-                  padding: '11px 14px', borderRadius: 8, marginBottom: 12,
-                  background: T.emeraldTint,
-                  border: `1px solid ${T.emeraldBdr}`,
+                  padding: '12px 14px', borderRadius: 10, marginBottom: 12,
+                  background: EM.bg,
+                  border: `1px solid ${EM.border}`,
                   display: 'flex', alignItems: 'center', gap: 10,
                 }}>
                   <div style={{
-                    width: 7, height: 7, borderRadius: '50%',
-                    background: T.emerald,
-                    flexShrink: 0,
-                    animation: 'pulse-dot 1.4s ease-in-out infinite',
+                    width: 8, height: 8, borderRadius: '50%',
+                    background: EM.text,
+                    animation: 'pulse-dot 1s ease-in-out infinite',
                   }} />
-                  <p style={{ fontFamily: T.fontSans, color: T.textSec, fontSize: 12 }}>
-                    Parsing link details...
+                  <p style={{ fontFamily: 'var(--font-sans)', color: '#6ee7b7', fontSize: 12 }}>
+                    Parsing metadata… extracting role, requirements, and company context.
                   </p>
                 </div>
               )}
 
               {parsed && (
                 <div style={{
-                  padding: '11px 14px', borderRadius: 8, marginBottom: 12,
-                  background: T.emeraldTint,
-                  border: `1px solid ${T.emeraldBdr}`,
+                  padding: '12px 14px', borderRadius: 10, marginBottom: 12,
+                  background: EM.bg,
+                  border: `1px solid ${EM.border}`,
                   display: 'flex', alignItems: 'center', gap: 10,
                 }}>
-                  <CheckCircle2 style={{ width: 14, height: 14, color: T.emerald, flexShrink: 0 }} />
-                  <p style={{ fontFamily: T.fontSans, color: T.textSec, fontSize: 12 }}>
-                    Role and company details filled in — review them in Step 3.
+                  <CheckCircle2 style={{ width: 14, height: 14, color: EM.text, flexShrink: 0 }} />
+                  <p style={{ fontFamily: 'var(--font-sans)', color: '#6ee7b7', fontSize: 12 }}>
+                    Metadata extracted — role and context pre-populated for Step 3.
                   </p>
                 </div>
               )}
@@ -589,30 +479,30 @@ export default function InterviewSetupWizard({ onComplete, onDismiss }: Props) {
               {/* Skip link */}
               <button
                 id="btn-wizard-skip"
-                onClick={goNext}
+                onClick={next}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 5,
                   background: 'none', border: 'none', cursor: 'pointer',
-                  color: T.textMut, fontSize: 12, fontFamily: T.fontSans,
-                  padding: '5px 0', transition: 'color 150ms ease',
+                  color: '#64748b', fontSize: 12, fontFamily: 'var(--font-sans)',
+                  padding: '6px 0', transition: 'color 150ms ease-in-out',
                 }}
-                onMouseOver={e => e.currentTarget.style.color = T.emerald}
-                onMouseOut={e  => e.currentTarget.style.color = T.textMut}
+                onMouseOver={e => e.currentTarget.style.color = '#94a3b8'}
+                onMouseOut={e  => e.currentTarget.style.color = '#64748b'}
               >
-                <SkipForward style={{ width: 11, height: 11 }} />
+                <SkipForward style={{ width: 12, height: 12 }} />
                 Skip to manual entry
               </button>
             </div>
           )}
 
-          {/* ═══ STEP 2 — Resume ══════════════════════════════════════════════ */}
+          {/* ═══ STEP 2 ═════════════════════════════════════════════════ */}
           {step === 2 && (
             <div>
-              <h2 style={{ fontFamily: T.fontHead, color: T.textPri, fontSize: 20, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.015em' }}>
-                Upload your CV
+              <h2 style={{ fontFamily: 'var(--font-heading)', color: '#f8fafc', fontSize: 20, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.015em' }}>
+                Candidate Resume
               </h2>
-              <p style={{ fontFamily: T.fontSans, color: T.textSec, fontSize: 13, marginBottom: 22, lineHeight: 1.65 }}>
-                Your CV helps tailor answers to your real experience. We support PDF and DOCX files.
+              <p style={{ fontFamily: 'var(--font-sans)', color: '#94a3b8', fontSize: 13, marginBottom: 24, lineHeight: 1.6 }}>
+                Upload your CV so the AI can tailor answers to your exact experience. Supports PDF and DOCX.
               </p>
 
               {/* Drop zone */}
@@ -624,16 +514,18 @@ export default function InterviewSetupWizard({ onComplete, onDismiss }: Props) {
                 onClick={() => !resumeFile && fileRef.current?.click()}
                 style={{
                   borderRadius: 16,
-                  border: `1.5px dashed ${isDragging ? T.emerald : resumeFile ? T.emeraldBdr : T.border}`,
+                  border: `2px dashed ${isDragging ? EM.text : resumeFile ? EM.border : 'rgba(255,255,255,0.12)'}`,
                   background: isDragging
-                    ? T.emeraldTint
+                    ? EM.bg
                     : resumeFile
-                    ? 'rgba(69 212 155 / 0.04)'
-                    : `radial-gradient(ellipse at 50% 100%, rgba(69 212 155 / 0.04) 0%, transparent 65%)`,
-                  padding: resumeFile ? '18px 22px' : '44px 28px',
+                    ? 'rgba(16,185,129,0.06)'
+                    : 'rgba(30,41,59,0.5)',
+                  padding: '44px 28px',
                   textAlign: 'center',
                   cursor: resumeFile ? 'default' : 'pointer',
-                  transition: 'all 200ms ease',
+                  transition: 'all 200ms ease-in-out',
+                  boxShadow: isDragging ? EM.shadow : 'none',
+                  position: 'relative',
                 }}
               >
                 <input
@@ -646,149 +538,194 @@ export default function InterviewSetupWizard({ onComplete, onDismiss }: Props) {
                 />
 
                 {resumeFile ? (
-                  /* Compact selected file preview */
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
                     <div style={{
-                      width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-                      background: 'rgba(69 212 155 / 0.12)',
-                      border: `1px solid ${T.emeraldBdr}`,
+                      width: 52, height: 52, borderRadius: 12,
+                      background: EM.bg,
+                      border: `1px solid ${EM.border}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
-                      <FileText style={{ width: 20, height: 20, color: T.emerald }} />
+                      <FileText style={{ width: 24, height: 24, color: EM.text }} />
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontFamily: T.fontSans, color: T.textPri, fontWeight: 600, fontSize: 13, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div>
+                      <p style={{ fontFamily: 'var(--font-sans)', color: EM.text, fontWeight: 600, fontSize: 14, marginBottom: 3 }}>
                         {resumeName}
                       </p>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontFamily: T.fontSans, fontSize: 11, color: T.textMut }}>
-                          {(resumeFile.size / 1024).toFixed(1)} KB
-                        </span>
-                        <span style={{
-                          fontSize: 10, fontWeight: 600, padding: '2px 7px',
-                          borderRadius: 99, fontFamily: T.fontSans,
-                          background: 'rgba(69 212 155 / 0.1)',
-                          border: `1px solid ${T.emeraldBdr}`,
-                          color: T.emerald,
-                        }}>
-                          Ready
-                        </span>
-                      </div>
+                      <p style={{ fontFamily: 'var(--font-sans)', color: '#64748b', fontSize: 11 }}>
+                        {resumeFile ? (resumeFile.size / 1024).toFixed(1) + ' KB' : ''}
+                      </p>
                     </div>
                     <button
                       onClick={e => { e.stopPropagation(); setResumeFile(null); setResumeName('') }}
-                      aria-label="Remove file"
                       style={{
-                        width: 28, height: 28, borderRadius: 7,
-                        background: 'rgba(239,68,68,0.08)',
-                        border: '1px solid rgba(239,68,68,0.18)',
-                        color: '#ef4444', cursor: 'pointer', flexShrink: 0,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'all 150ms ease',
+                        display: 'flex', alignItems: 'center', gap: 5,
+                        background: 'rgba(239,68,68,0.1)',
+                        border: '1px solid rgba(239,68,68,0.2)',
+                        borderRadius: 8, padding: '5px 12px',
+                        color: '#ef4444', fontSize: 11, cursor: 'pointer',
+                        fontFamily: 'var(--font-sans)',
+                        transition: 'all 150ms ease-in-out',
                       }}
                     >
-                      <X style={{ width: 12, height: 12 }} />
+                      <X style={{ width: 11, height: 11 }} /> Remove
                     </button>
                   </div>
                 ) : (
-                  /* Upload prompt */
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
                     <div style={{
-                      width: 52, height: 52, borderRadius: 13,
-                      background: isDragging ? T.emeraldTint : 'rgba(255 255 255 / 0.04)',
-                      border: `1px solid ${isDragging ? T.emeraldBdr : T.border}`,
+                      width: 56, height: 56, borderRadius: 14,
+                      background: isDragging ? EM.bg : 'rgba(255,255,255,0.04)',
+                      border: `1px solid ${isDragging ? EM.border : 'rgba(255,255,255,0.08)'}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'all 200ms ease',
+                      transition: 'all 200ms ease-in-out',
                     }}>
-                      <Upload style={{ width: 22, height: 22, color: isDragging ? T.emerald : T.textMut }} />
+                      <Upload style={{ width: 24, height: 24, color: isDragging ? EM.text : '#334155' }} />
                     </div>
                     <div>
-                      <p style={{ fontFamily: T.fontSans, color: isDragging ? T.emerald : T.textSec, fontWeight: 500, fontSize: 14, marginBottom: 4 }}>
-                        {isDragging ? 'Drop your file here' : 'Drag your CV here or click to browse'}
+                      <p style={{ fontFamily: 'var(--font-sans)', color: isDragging ? EM.text : '#94a3b8', fontWeight: 500, fontSize: 14, marginBottom: 4 }}>
+                        {isDragging ? 'Drop your file here' : 'Drag & drop your CV here'}
                       </p>
-                      <p style={{ fontFamily: T.fontSans, color: T.textMut, fontSize: 11 }}>PDF or DOCX · up to 10 MB</p>
+                      <p style={{ fontFamily: 'var(--font-sans)', color: '#475569', fontSize: 11 }}>or click to browse · PDF or DOCX</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {['PDF', 'DOCX'].map(t => (
+                        <span key={t} style={{
+                          padding: '3px 10px', borderRadius: 6,
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid rgba(255,255,255,0.08)',
+                          color: '#64748b', fontSize: 10, fontWeight: 600,
+                          fontFamily: 'var(--font-mono)',
+                        }}>{t}</span>
+                      ))}
                     </div>
                   </div>
                 )}
               </div>
 
-              <p style={{ fontFamily: T.fontSans, color: T.textMut, fontSize: 11, marginTop: 10, textAlign: 'center' }}>
-                Your file stays on your device and is never stored or shared.
+              <p style={{ fontFamily: 'var(--font-sans)', color: '#475569', fontSize: 11, marginTop: 12, textAlign: 'center' }}>
+                Your file is processed locally and never stored permanently.
               </p>
             </div>
           )}
 
-          {/* ═══ STEP 3 — Context Review ══════════════════════════════════════ */}
+          {/* ═══ STEP 3 ═════════════════════════════════════════════════ */}
           {step === 3 && (
             <div>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
                 <div>
-                  <h2 style={{ fontFamily: T.fontHead, color: T.textPri, fontSize: 20, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.015em' }}>
-                    Review the details
+                  <h2 style={{ fontFamily: 'var(--font-heading)', color: '#f8fafc', fontSize: 20, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.015em' }}>
+                    Context Review
                   </h2>
-                  <p style={{ fontFamily: T.fontSans, color: T.textSec, fontSize: 13, lineHeight: 1.65 }}>
-                    Check and refine what we found. This shapes how the co-pilot responds in your session.
+                  <p style={{ fontFamily: 'var(--font-sans)', color: '#94a3b8', fontSize: 13, lineHeight: 1.6 }}>
+                    Review and refine the extracted context. This drives your AI co-pilot&apos;s responses.
                   </p>
                 </div>
 
-                {/* Match score ring — emerald */}
+                {/* Emerald match ring */}
                 <div style={{ flexShrink: 0, textAlign: 'center', marginLeft: 20 }}>
                   <div style={{
-                    width: 70, height: 70, borderRadius: '50%', position: 'relative',
-                    background: `conic-gradient(${scoreColor} ${matchScore * 3.6}deg, rgba(255 255 255 / 0.05) 0deg)`,
+                    width: 72, height: 72, borderRadius: '50%', position: 'relative',
+                    background: `conic-gradient(${scoreColor} ${matchScore * 3.6}deg, rgba(255,255,255,0.06) 0deg)`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: `0 0 18px -4px ${scoreColor}55`,
-                    transition: 'background 40ms',
+                    boxShadow: `0 0 20px -4px ${scoreColor}55`,
+                    transition: 'background 50ms',
                   }}>
                     <div style={{
-                      width: 52, height: 52, borderRadius: '50%',
-                      background: T.bgCard,
+                      width: 54, height: 54, borderRadius: '50%',
+                      background: '#0f172a',
                       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                     }}>
-                      <Star style={{ width: 9, height: 9, color: scoreColor, marginBottom: 1 }} />
-                      <span style={{ fontFamily: T.fontMono, color: scoreColor, fontSize: 14, fontWeight: 700, lineHeight: 1 }}>
+                      <Star style={{ width: 10, height: 10, color: scoreColor, marginBottom: 1 }} />
+                      <span style={{ fontFamily: 'var(--font-mono)', color: scoreColor, fontSize: 15, fontWeight: 700, lineHeight: 1 }}>
                         {matchScore}
                       </span>
-                      <span style={{ fontFamily: T.fontSans, color: T.textMut, fontSize: 8 }}>MATCH</span>
+                      <span style={{ fontFamily: 'var(--font-sans)', color: '#475569', fontSize: 8 }}>MATCH</span>
                     </div>
                   </div>
-                  <p style={{ fontFamily: T.fontSans, color: T.textMut, fontSize: 9, marginTop: 5 }}>Profile fit</p>
+                  <p style={{ fontFamily: 'var(--font-sans)', color: '#64748b', fontSize: 9, marginTop: 6 }}>Role Match Score</p>
                 </div>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {/* Job Role */}
                 <div>
-                  <FieldLabel><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Briefcase style={{ width: 11, height: 11 }} /> Job Role</span></FieldLabel>
-                  <WizardInput value={jobRole} onChange={setJobRole} placeholder="e.g. Product Manager, Customer Success Lead" />
+                  <label style={{ display: 'block', color: '#94a3b8', fontSize: 10.5, fontWeight: 600, fontFamily: 'var(--font-sans)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 7 }}>
+                    <Briefcase style={{ width: 11, height: 11, display: 'inline', marginRight: 5 }} />
+                    Job Role
+                  </label>
+                  <input
+                    value={jobRole}
+                    onChange={e => setJobRole(e.target.value)}
+                    placeholder="e.g. AI Trainer, Senior Frontend Engineer"
+                    style={{
+                      width: '100%', padding: '11px 14px',
+                      background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)',
+                      borderRadius: 10, color: '#f8fafc', fontSize: 13, outline: 'none',
+                      fontFamily: 'var(--font-sans)', transition: 'border-color 150ms ease-in-out',
+                    }}
+                    onFocus={e => { e.target.style.borderColor = EM.border; e.target.style.boxShadow = `0 0 0 2px ${EM.glow}` }}
+                    onBlur={e  => { e.target.style.borderColor = 'rgba(255,255,255,0.12)'; e.target.style.boxShadow = 'none' }}
+                  />
                 </div>
+
+                {/* Company */}
                 <div>
-                  <FieldLabel><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Building2 style={{ width: 11, height: 11 }} /> Company</span></FieldLabel>
-                  <WizardInput value={companyName} onChange={setCompanyName} placeholder="e.g. Notion, Intercom, Google" />
+                  <label style={{ display: 'block', color: '#94a3b8', fontSize: 10.5, fontWeight: 600, fontFamily: 'var(--font-sans)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 7 }}>
+                    <Building2 style={{ width: 11, height: 11, display: 'inline', marginRight: 5 }} />
+                    Company Name
+                  </label>
+                  <input
+                    value={companyName}
+                    onChange={e => setCompanyName(e.target.value)}
+                    placeholder="e.g. micro1, Google, OpenAI"
+                    style={{
+                      width: '100%', padding: '11px 14px',
+                      background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)',
+                      borderRadius: 10, color: '#f8fafc', fontSize: 13, outline: 'none',
+                      fontFamily: 'var(--font-sans)', transition: 'border-color 150ms ease-in-out',
+                    }}
+                    onFocus={e => { e.target.style.borderColor = EM.border; e.target.style.boxShadow = `0 0 0 2px ${EM.glow}` }}
+                    onBlur={e  => { e.target.style.borderColor = 'rgba(255,255,255,0.12)'; e.target.style.boxShadow = 'none' }}
+                  />
                 </div>
+
+                {/* Key Focus Areas */}
                 <div>
-                  <FieldLabel><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><ListChecks style={{ width: 11, height: 11 }} /> Key focus areas</span></FieldLabel>
-                  <WizardTextarea
+                  <label style={{ display: 'block', color: '#94a3b8', fontSize: 10.5, fontWeight: 600, fontFamily: 'var(--font-sans)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 7 }}>
+                    <ListChecks style={{ width: 11, height: 11, display: 'inline', marginRight: 5 }} />
+                    Key Focus Areas
+                  </label>
+                  <textarea
                     value={keyFocus}
-                    onChange={setKeyFocus}
-                    placeholder="e.g. stakeholder management, data-driven decisions, cross-functional collaboration..."
+                    onChange={e => setKeyFocus(e.target.value)}
+                    placeholder="e.g. LLM evaluation, prompt engineering, Python, system design, STAR framework..."
                     rows={3}
+                    style={{
+                      width: '100%', padding: '11px 14px',
+                      background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)',
+                      borderRadius: 10, color: '#f8fafc', fontSize: 13, outline: 'none',
+                      fontFamily: 'var(--font-sans)', resize: 'vertical', lineHeight: 1.6,
+                      transition: 'border-color 150ms ease-in-out',
+                    }}
+                    onFocus={e => { e.target.style.borderColor = EM.border; e.target.style.boxShadow = `0 0 0 2px ${EM.glow}` }}
+                    onBlur={e  => { e.target.style.borderColor = 'rgba(255,255,255,0.12)'; e.target.style.boxShadow = 'none' }}
                   />
                 </div>
               </div>
             </div>
           )}
 
-          {/* ═══ STEP 4 — Assistance Mode ════════════════════════════════════ */}
+          {/* ═══ STEP 4 ═════════════════════════════════════════════════ */}
           {step === 4 && (
             <div>
-              <h2 style={{ fontFamily: T.fontHead, color: T.textPri, fontSize: 20, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.015em' }}>
-                How should the co-pilot help?
+              <h2 style={{ fontFamily: 'var(--font-heading)', color: '#f8fafc', fontSize: 20, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.015em' }}>
+                Assistance Mode
               </h2>
-              <p style={{ fontFamily: T.fontSans, color: T.textSec, fontSize: 13, marginBottom: 22, lineHeight: 1.65 }}>
-                Choose the style that suits how you interview best. You can change this later.
+              <p style={{ fontFamily: 'var(--font-sans)', color: '#94a3b8', fontSize: 13, marginBottom: 22, lineHeight: 1.6 }}>
+                Choose how the co-pilot delivers answers during your interview.
               </p>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {MODES.map(m => {
                   const selected = mode === m.id
                   const Icon = m.icon
@@ -799,61 +736,68 @@ export default function InterviewSetupWizard({ onComplete, onDismiss }: Props) {
                       onClick={() => setMode(m.id)}
                       style={{
                         width: '100%', textAlign: 'left', cursor: 'pointer',
-                        padding: '15px 16px', borderRadius: 12,
-                        background: selected ? T.emeraldTint : 'rgba(255 255 255 / 0.02)',
-                        border: `1px solid ${selected ? T.emeraldBdr : T.border}`,
-                        boxShadow: selected ? `0 0 20px -6px ${T.emeraldGlow}` : 'none',
-                        transition: 'all 180ms ease',
-                        display: 'flex', alignItems: 'flex-start', gap: 13,
+                        padding: '16px 18px', borderRadius: 14,
+                        background: selected ? EM.bg : 'rgba(30,41,59,0.5)',
+                        border: `1px solid ${selected ? EM.border : 'rgba(255,255,255,0.08)'}`,
+                        boxShadow: selected ? EM.shadow : 'none',
+                        transition: 'all 200ms ease-in-out',
+                        display: 'flex', alignItems: 'flex-start', gap: 14,
                         outline: 'none',
                       }}
-                      onMouseOver={e => { if (!selected) e.currentTarget.style.borderColor = 'rgba(255 255 255 / 0.18)' }}
-                      onMouseOut={e  => { if (!selected) e.currentTarget.style.borderColor = T.border }}
+                      onMouseOver={e => { if (!selected) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)' }}
+                      onMouseOut={e  => { if (!selected) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)' }}
                     >
-                      {/* Icon */}
+                      {/* Icon badge */}
                       <div style={{
-                        width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-                        background: selected ? 'rgba(69 212 155 / 0.12)' : 'rgba(255 255 255 / 0.04)',
-                        border: `1px solid ${selected ? T.emeraldBdr : T.border}`,
+                        width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                        background: selected ? EM.bg : 'rgba(255,255,255,0.04)',
+                        border: `1px solid ${selected ? EM.border : 'rgba(255,255,255,0.08)'}`,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'all 180ms ease',
+                        transition: 'all 200ms ease-in-out',
                       }}>
-                        <Icon style={{ width: 17, height: 17, color: selected ? T.emerald : T.textMut }} />
+                        <Icon style={{ width: 18, height: 18, color: selected ? EM.text : '#475569' }} />
                       </div>
 
-                      {/* Text */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                          <span style={{ fontFamily: T.fontHead, color: selected ? T.textPri : T.textSec, fontWeight: 700, fontSize: 14, letterSpacing: '-0.01em' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                          <span style={{
+                            fontFamily: 'var(--font-heading)', color: selected ? '#f8fafc' : '#94a3b8',
+                            fontWeight: 700, fontSize: 14, letterSpacing: '-0.01em',
+                          }}>
                             {m.label}
                           </span>
                           <span style={{
-                            padding: '2px 7px', borderRadius: 5,
-                            background: selected ? 'rgba(69 212 155 / 0.12)' : 'rgba(255 255 255 / 0.04)',
-                            color: selected ? T.emerald : T.textMut,
+                            padding: '2px 8px', borderRadius: 6,
+                            background: selected ? m.tagBg : 'rgba(255,255,255,0.04)',
+                            color: selected ? m.tagColor : '#475569',
                             fontSize: 9, fontWeight: 700, letterSpacing: '0.06em',
-                            fontFamily: T.fontSans,
-                            border: `1px solid ${selected ? T.emeraldBdr : T.border}`,
-                            transition: 'all 180ms ease',
+                            fontFamily: 'var(--font-sans)',
+                            border: `1px solid ${selected ? m.tagColor + '44' : 'rgba(255,255,255,0.06)'}`,
+                            transition: 'all 200ms ease-in-out',
                           }}>
                             {m.tag}
                           </span>
                         </div>
-                        <p style={{ fontFamily: T.fontSans, color: selected ? T.textSec : T.textMut, fontSize: 12, lineHeight: 1.6, transition: 'color 180ms ease' }}>
+                        <p style={{
+                          fontFamily: 'var(--font-sans)',
+                          color: selected ? '#94a3b8' : '#64748b',
+                          fontSize: 12, lineHeight: 1.6,
+                          transition: 'color 200ms ease-in-out',
+                        }}>
                           {m.desc}
                         </p>
                       </div>
 
-                      {/* Radio indicator */}
+                      {/* Radio dot — emerald */}
                       <div style={{
-                        width: 17, height: 17, borderRadius: '50%', flexShrink: 0, marginTop: 3,
-                        background: selected ? T.emerald : 'transparent',
-                        border: `2px solid ${selected ? T.emerald : T.border}`,
+                        width: 18, height: 18, borderRadius: '50%', flexShrink: 0, marginTop: 2,
+                        background: selected ? EM.grad : 'transparent',
+                        border: `2px solid ${selected ? EM.text : 'rgba(255,255,255,0.2)'}`,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'all 180ms ease',
-                        boxShadow: selected ? `0 0 8px -2px ${T.emeraldGlow}` : 'none',
+                        transition: 'all 200ms ease-in-out',
+                        boxShadow: selected ? `0 0 10px -2px ${EM.glow}` : 'none',
                       }}>
-                        {selected && <div style={{ width: 5, height: 5, borderRadius: '50%', background: T.emeraldText }} />}
+                        {selected && <div style={{ width: 6, height: 6, borderRadius: '50%', background: EM.textDark }} />}
                       </div>
                     </button>
                   )
@@ -862,163 +806,162 @@ export default function InterviewSetupWizard({ onComplete, onDismiss }: Props) {
             </div>
           )}
 
-          {/* ═══ STEP 5 — Pre-Flight ══════════════════════════════════════════ */}
+          {/* ═══ STEP 5 ═════════════════════════════════════════════════ */}
           {step === 5 && (
             <div>
-              <h2 style={{ fontFamily: T.fontHead, color: T.textPri, fontSize: 20, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.015em' }}>
-                Ready to go
+              <h2 style={{ fontFamily: 'var(--font-heading)', color: '#f8fafc', fontSize: 20, fontWeight: 700, marginBottom: 6, letterSpacing: '-0.015em' }}>
+                Pre-Flight Check
               </h2>
-              <p style={{ fontFamily: T.fontSans, color: T.textSec, fontSize: 13, marginBottom: 20, lineHeight: 1.65 }}>
-                Final checks before your co-pilot goes live. Everything is hidden from screen sharing.
+              <p style={{ fontFamily: 'var(--font-sans)', color: '#94a3b8', fontSize: 13, marginBottom: 24, lineHeight: 1.6 }}>
+                Final checks before launching your co-pilot overlay.
               </p>
 
-              {/* Summary card */}
+              {/* Config summary */}
               <div style={{
-                padding: '14px 16px', borderRadius: 10, marginBottom: 16,
-                background: T.emeraldTint,
-                border: `1px solid ${T.emeraldBdr}`,
+                padding: '14px 16px', borderRadius: 12, marginBottom: 20,
+                background: EM.bg,
+                border: `1px solid ${EM.border}`,
               }}>
-                <EyebrowLabel>Session Summary</EyebrowLabel>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <p style={{ fontFamily: 'var(--font-sans)', color: '#64748b', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                  Session Configuration
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
                   {[
-                    { label: 'Role',    value: jobRole     || '—' },
-                    { label: 'Company', value: companyName || '—' },
-                    { label: 'Support', value: MODES.find(m => m.id === mode)?.label || '—' },
-                    { label: 'CV',      value: resumeName  || 'Not uploaded' },
+                    { label: 'Role',    value: jobRole      || '—' },
+                    { label: 'Company', value: companyName  || '—' },
+                    { label: 'Mode',    value: MODES.find(m => m.id === mode)?.label || '—' },
+                    { label: 'Resume',  value: resumeName   || 'Not uploaded' },
                   ].map(({ label, value }) => (
                     <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                      <span style={{ fontFamily: T.fontSans, color: T.textMut, fontSize: 12 }}>{label}</span>
-                      <span style={{
-                        fontFamily: T.fontSans, color: T.textSec, fontSize: 12, fontWeight: 500,
-                        maxWidth: '60%', textAlign: 'right',
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      }}>{value}</span>
+                      <span style={{ fontFamily: 'var(--font-sans)', color: '#64748b', fontSize: 12 }}>{label}</span>
+                      <span style={{ fontFamily: 'var(--font-sans)', color: '#94a3b8', fontSize: 12, fontWeight: 500, maxWidth: '65%', textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {value}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Toggles */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {/* Mic toggle */}
                 <div style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '14px 16px', borderRadius: 10,
-                  background: T.bgInput, border: `1px solid ${T.border}`,
+                  padding: '16px 16px', borderRadius: 12,
+                  background: '#1e293b', border: '1px solid rgba(255,255,255,0.08)',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{
-                      width: 34, height: 34, borderRadius: 9,
-                      background: micEnabled ? 'rgba(69 212 155 / 0.1)' : 'rgba(255 255 255 / 0.04)',
-                      border: `1px solid ${micEnabled ? T.emeraldBdr : T.border}`,
+                      width: 36, height: 36, borderRadius: 10,
+                      background: micEnabled ? EM.bg : 'rgba(255,255,255,0.04)',
+                      border: `1px solid ${micEnabled ? EM.border : 'rgba(255,255,255,0.08)'}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'all 200ms ease',
+                      transition: 'all 200ms ease-in-out',
                     }}>
                       {micEnabled
-                        ? <Mic style={{ width: 15, height: 15, color: T.emerald }} />
-                        : <MicOff style={{ width: 15, height: 15, color: T.textMut }} />
+                        ? <Mic    style={{ width: 16, height: 16, color: EM.text }} />
+                        : <MicOff style={{ width: 16, height: 16, color: '#475569' }} />
                       }
                     </div>
                     <div>
-                      <p style={{ fontFamily: T.fontSans, color: T.textPri, fontSize: 13, fontWeight: 500, marginBottom: 2 }}>
-                        {micEnabled ? 'Desktop Agent Ready' : 'Enable Microphone'}
+                      <p style={{ fontFamily: 'var(--font-sans)', color: '#f8fafc', fontSize: 13, fontWeight: 500, marginBottom: 2 }}>
+                        Microphone Input
                       </p>
-                      <p style={{ fontFamily: T.fontSans, color: T.textMut, fontSize: 11 }}>
-                        {micOk ? '✓ Microphone access confirmed' : 'Needed for real-time co-pilot mode'}
+                      <p style={{ fontFamily: 'var(--font-sans)', color: '#64748b', fontSize: 11 }}>
+                        {micOk ? '✓ Microphone access granted' : 'Required for Live Adaptive mode'}
                       </p>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     {!micEnabled && (
                       <button
                         id="btn-wizard-test-mic"
                         onClick={testMic}
                         disabled={micTesting}
                         style={{
-                          padding: '4px 11px', height: 28, borderRadius: 7,
-                          fontSize: 11, fontWeight: 600, fontFamily: T.fontSans,
-                          background: T.emeraldTint,
-                          border: `1px solid ${T.emeraldBdr}`,
-                          color: T.emerald,
+                          padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600,
+                          fontFamily: 'var(--font-sans)',
+                          background: EM.bg,
+                          border: `1px solid ${EM.border}`,
+                          color: EM.text,
                           cursor: micTesting ? 'not-allowed' : 'pointer',
                           display: 'flex', alignItems: 'center', gap: 5,
-                          transition: 'all 150ms ease',
+                          transition: 'all 150ms ease-in-out',
                         }}
                       >
-                        {micTesting && <Loader2 style={{ width: 11, height: 11, animation: 'spin 0.8s linear infinite' }} />}
-                        {micTesting ? 'Checking…' : 'Test'}
+                        {micTesting && <Loader2 style={{ width: 11, height: 11, animation: 'spin 1s linear infinite' }} />}
+                        {micTesting ? 'Testing…' : 'Test'}
                       </button>
                     )}
-                    <Toggle on={micEnabled} onToggle={() => setMicEnabled(v => !v)} />
+                    <Toggle on={micEnabled} onToggle={() => setMicEnabled(!micEnabled)} />
                   </div>
                 </div>
 
                 {/* Save preset toggle */}
                 <div style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '14px 16px', borderRadius: 10,
-                  background: T.bgInput, border: `1px solid ${T.border}`,
+                  padding: '16px 16px', borderRadius: 12,
+                  background: '#1e293b', border: '1px solid rgba(255,255,255,0.08)',
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{
-                      width: 34, height: 34, borderRadius: 9,
-                      background: savePreset ? 'rgba(69 212 155 / 0.1)' : 'rgba(255 255 255 / 0.04)',
-                      border: `1px solid ${savePreset ? T.emeraldBdr : T.border}`,
+                      width: 36, height: 36, borderRadius: 10,
+                      background: savePreset ? EM.bg : 'rgba(255,255,255,0.04)',
+                      border: `1px solid ${savePreset ? EM.border : 'rgba(255,255,255,0.08)'}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'all 200ms ease',
+                      transition: 'all 200ms ease-in-out',
                     }}>
-                      <Save style={{ width: 15, height: 15, color: savePreset ? T.emerald : T.textMut }} />
+                      <Save style={{ width: 16, height: 16, color: savePreset ? EM.text : '#475569' }} />
                     </div>
                     <div>
-                      <p style={{ fontFamily: T.fontSans, color: T.textPri, fontSize: 13, fontWeight: 500, marginBottom: 2 }}>
-                        Save Session Preset
+                      <p style={{ fontFamily: 'var(--font-sans)', color: '#f8fafc', fontSize: 13, fontWeight: 500, marginBottom: 2 }}>
+                        Save Session as Preset
                       </p>
-                      <p style={{ fontFamily: T.fontSans, color: T.textMut, fontSize: 11 }}>
-                        Quickly reuse this setup for future interviews
+                      <p style={{ fontFamily: 'var(--font-sans)', color: '#64748b', fontSize: 11 }}>
+                        Store this configuration for future interviews
                       </p>
                     </div>
                   </div>
-                  <Toggle on={savePreset} onToggle={() => setSavePreset(v => !v)} />
+                  <Toggle on={savePreset} onToggle={() => setSavePreset(!savePreset)} />
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* ── Footer nav ──────────────────────────────────────────────────── */}
+        {/* ── Footer nav ───────────────────────────────────────────────── */}
         <div
           style={{
-            padding: '16px 26px',
-            borderTop: `1px solid ${T.borderSubtle}`,
+            padding: '18px 28px',
+            borderTop: '1px solid rgba(255,255,255,0.06)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            background: 'rgba(0 0 0 / 0.15)',
+            background: 'rgba(15,23,42,0.6)',
           }}
         >
           {/* Back */}
           <button
             id="btn-wizard-back"
-            onClick={goBack}
+            onClick={back}
             disabled={step === 1}
             style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '0 16px', height: 38, borderRadius: 8,
-              background: step === 1 ? 'transparent' : 'rgba(255 255 255 / 0.05)',
-              border: `1px solid ${step === 1 ? 'transparent' : T.border}`,
-              color: step === 1 ? T.border : T.textSec,
-              fontSize: 13, fontWeight: 500, fontFamily: T.fontSans,
-              cursor: step === 1 ? 'default' : 'pointer',
-              transition: 'all 150ms ease',
+              display: 'flex', alignItems: 'center', gap: 7,
+              padding: '10px 18px', borderRadius: 10,
+              background: step === 1 ? 'transparent' : 'rgba(255,255,255,0.05)',
+              border: `1px solid ${step === 1 ? 'transparent' : 'rgba(255,255,255,0.1)'}`,
+              color: step === 1 ? '#334155' : '#94a3b8',
+              fontSize: 13, fontWeight: 500, fontFamily: 'var(--font-sans)',
+              cursor: step === 1 ? 'not-allowed' : 'pointer',
+              transition: 'all 150ms ease-in-out',
             }}
-            onMouseOver={e => { if (step !== 1) { e.currentTarget.style.color = T.textPri } }}
-            onMouseOut={e  => { if (step !== 1) { e.currentTarget.style.color = T.textSec } }}
+            onMouseOver={e => { if (step !== 1) { e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; e.currentTarget.style.color = '#f8fafc' } }}
+            onMouseOut={e  => { if (step !== 1) { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#94a3b8' } }}
           >
-            <ChevronLeft style={{ width: 14, height: 14 }} />
+            <ChevronLeft style={{ width: 15, height: 15 }} />
             Back
           </button>
 
-          {/* Counter */}
-          <span style={{ fontFamily: T.fontMono, color: T.textMut, fontSize: 11 }}>
+          {/* Step counter */}
+          <span style={{ fontFamily: 'var(--font-mono)', color: '#475569', fontSize: 11 }}>
             {step} / 5
           </span>
 
@@ -1026,21 +969,21 @@ export default function InterviewSetupWizard({ onComplete, onDismiss }: Props) {
           {step < 5 ? (
             <button
               id="btn-wizard-next"
-              onClick={goNext}
+              onClick={next}
               style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '0 22px', height: 38, borderRadius: 8, border: 'none',
-                background: T.emerald,
-                color: T.emeraldText,
-                fontSize: 13, fontWeight: 600, fontFamily: T.fontSans,
-                cursor: 'pointer', transition: 'all 150ms ease',
-                boxShadow: `0 0 18px -4px ${T.emeraldGlow}`,
+                display: 'flex', alignItems: 'center', gap: 7,
+                padding: '10px 22px', borderRadius: 10, border: 'none',
+                background: EM.grad,
+                color: EM.textDark, fontSize: 13, fontWeight: 600,
+                fontFamily: 'var(--font-sans)',
+                cursor: 'pointer', transition: 'all 150ms ease-in-out',
+                boxShadow: `0 0 20px -4px ${EM.glow}`,
               }}
-              onMouseOver={e => { e.currentTarget.style.background = T.emeraldHov; e.currentTarget.style.transform = 'translateY(-1px)' }}
-              onMouseOut={e  => { e.currentTarget.style.background = T.emerald;    e.currentTarget.style.transform = 'translateY(0)' }}
+              onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 0 28px -4px ${EM.glowStr}` }}
+              onMouseOut={e  => { e.currentTarget.style.transform = 'translateY(0)';   e.currentTarget.style.boxShadow = `0 0 20px -4px ${EM.glow}` }}
             >
               Continue
-              <ChevronRight style={{ width: 14, height: 14 }} />
+              <ChevronRight style={{ width: 15, height: 15 }} />
             </button>
           ) : (
             <button
@@ -1048,18 +991,18 @@ export default function InterviewSetupWizard({ onComplete, onDismiss }: Props) {
               onClick={handleComplete}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8,
-                padding: '0 28px',
-                height: 44,  /* min-height per spec */
-                borderRadius: 8, border: 'none',
-                background: T.emerald,
-                color: T.emeraldText,
-                fontSize: 14, fontWeight: 700, fontFamily: T.fontSans,
-                cursor: 'pointer', transition: 'all 150ms ease',
-                boxShadow: `0 0 24px -4px ${T.emeraldGlow}`,
-                letterSpacing: '-0.01em',
+                padding: '11px 26px',
+                minHeight: 44,
+                borderRadius: 10, border: 'none',
+                background: EM.grad,
+                color: EM.textDark, fontSize: 13, fontWeight: 700,
+                fontFamily: 'var(--font-sans)',
+                cursor: 'pointer', transition: 'all 150ms ease-in-out',
+                boxShadow: `0 0 25px -4px ${EM.glow}`,
+                letterSpacing: '0.01em',
               }}
-              onMouseOver={e => { e.currentTarget.style.background = T.emeraldHov; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 0 32px -4px ${T.emeraldGlow}` }}
-              onMouseOut={e  => { e.currentTarget.style.background = T.emerald;    e.currentTarget.style.transform = 'translateY(0)';   e.currentTarget.style.boxShadow = `0 0 24px -4px ${T.emeraldGlow}` }}
+              onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = `0 0 35px -4px ${EM.glowStr}` }}
+              onMouseOut={e  => { e.currentTarget.style.transform = 'translateY(0)';   e.currentTarget.style.boxShadow = `0 0 25px -4px ${EM.glow}` }}
             >
               <Play style={{ width: 14, height: 14 }} />
               Start Copilot Session
@@ -1067,6 +1010,8 @@ export default function InterviewSetupWizard({ onComplete, onDismiss }: Props) {
           )}
         </div>
       </div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }
