@@ -1,0 +1,6 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "cd copilot-web && npm install && npm run build",
+  "outputDirectory": "copilot-web/.next",
+  "installCommand": "cd copilot-web && npm install"
+}
