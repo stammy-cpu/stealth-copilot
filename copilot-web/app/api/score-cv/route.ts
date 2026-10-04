@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import Groq from 'groq-sdk'
+import { makeGroqClient, resolveGroqModel } from '@/lib/groq'
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,7 +11,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Job description or role required' }, { status: 400 })
     }
 
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+    const groq  = makeGroqClient()
+    const model = await resolveGroqModel(groq)
 
     const systemMsg = `You are an expert career coach and ATS (Applicant Tracking System) specialist.
 Analyse the candidate's CV/resume against the job description and produce a detailed, honest assessment.
@@ -57,20 +58,19 @@ SCORING RULES:
 Return ONLY the JSON object.`
 
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model,
       messages: [
         { role: 'system', content: systemMsg },
-        { role: 'user', content: userMsg },
+        { role: 'user',   content: userMsg },
       ],
       max_tokens: 1500,
       temperature: 0.2,
       response_format: { type: 'json_object' },
     })
 
-    const raw = completion.choices[0]?.message?.content ?? '{}'
+    const raw    = completion.choices[0]?.message?.content ?? '{}'
     const result = JSON.parse(raw)
 
-    // Sanitise
     if (typeof result.overall_score !== 'number') {
       result.overall_score = 35
     }

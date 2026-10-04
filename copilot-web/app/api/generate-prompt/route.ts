@@ -1,11 +1,13 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import Groq from 'groq-sdk'
+import { makeGroqClient, resolveGroqModel } from '@/lib/groq'
 
 export async function POST(req: NextRequest) {
-  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
   try {
+    const groq  = makeGroqClient()
+    const model = await resolveGroqModel(groq)
+
     const { cvText, jdText, roleTitle, company, rate } = await req.json()
 
     if (!jdText?.trim()) {
@@ -50,7 +52,7 @@ Generate a JSON object with EXACTLY these fields:
 Return ONLY the JSON object.`
 
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user',   content: userMessage },
@@ -60,10 +62,9 @@ Return ONLY the JSON object.`
       response_format: { type: 'json_object' },
     })
 
-    const raw = completion.choices[0]?.message?.content ?? '{}'
+    const raw    = completion.choices[0]?.message?.content ?? '{}'
     const parsed = JSON.parse(raw)
 
-    // Ensure anchor_stories is always an array of strings
     if (!Array.isArray(parsed.anchor_stories)) {
       parsed.anchor_stories = Object.values(parsed.anchor_stories ?? {})
     }

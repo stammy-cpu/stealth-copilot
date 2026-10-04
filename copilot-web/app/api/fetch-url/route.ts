@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import Groq from 'groq-sdk'
+import { makeGroqClient, resolveGroqModel } from '@/lib/groq'
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,7 +24,6 @@ export async function POST(req: NextRequest) {
       })
       rawHtml = await res.text()
     } catch (fetchErr) {
-      // If we can't fetch (e.g. LinkedIn blocks bots), gracefully fall through
       console.warn('[fetch-url] Could not fetch page:', fetchErr)
     }
 
@@ -39,10 +38,11 @@ export async function POST(req: NextRequest) {
       .replace(/&gt;/g, '>')
       .replace(/&nbsp;/g, ' ')
       .replace(/&#\d+;/g, '')
-      .slice(0, 8000) // cap to keep tokens manageable
+      .slice(0, 8000)
 
     // ── 3. AI extraction ──────────────────────────────────────────────────────
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+    const groq  = makeGroqClient()
+    const model = await resolveGroqModel(groq)
 
     const systemMsg = `You are a job description parser. Extract structured information from the text provided.
 Return ONLY valid JSON with exactly these fields — no markdown, no explanation:
@@ -66,17 +66,17 @@ If any field is not found, use null or an empty array. Never fabricate informati
       : `URL: ${url}\n\nNo page content could be fetched (the site may block bots). Use the URL itself to infer what you can about the role and company.`
 
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model,
       messages: [
         { role: 'system', content: systemMsg },
-        { role: 'user', content: userMsg },
+        { role: 'user',   content: userMsg },
       ],
       max_tokens: 1000,
       temperature: 0.1,
       response_format: { type: 'json_object' },
     })
 
-    const raw = completion.choices[0]?.message?.content ?? '{}'
+    const raw    = completion.choices[0]?.message?.content ?? '{}'
     const parsed = JSON.parse(raw)
 
     return NextResponse.json(parsed)
