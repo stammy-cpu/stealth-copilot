@@ -745,26 +745,26 @@ export default function InterviewSetupWizard({ onComplete, onDismiss, userId }: 
               )}
 
               {/* Critical gaps */}
-              {scoreResult?.critical_gaps?.length > 0 && (
+              {(scoreResult?.critical_gaps?.length ?? 0) > 0 && (
                 <div style={{ padding: '14px 16px', borderRadius: 12, marginBottom: 12, background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.15)' }}>
                   <p style={{ color: '#64748b', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Critical Gaps to Address</p>
-                  {scoreResult.critical_gaps.slice(0, 4).map((g, i) => (
+                  {scoreResult!.critical_gaps.slice(0, 4).map((g, i) => (
                     <div key={i} style={{ marginBottom: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                         <SeverityBadge severity={g.severity} />
                         <span style={{ color: '#f8fafc', fontSize: 12, fontWeight: 500 }}>{g.gap}</span>
                       </div>
-                      <p style={{ color: '#64748b', fontSize: 11, lineHeight: 1.5 }}>→ {g.recommendation}</p>
+                      <p style={{ color: '#64748b', fontSize: 11, lineHeight: 1.5 }}>&rarr; {g.recommendation}</p>
                     </div>
                   ))}
                 </div>
               )}
 
               {/* Quick wins */}
-              {scoreResult?.quick_wins?.length > 0 && (
+              {(scoreResult?.quick_wins?.length ?? 0) > 0 && (
                 <div style={{ padding: '12px 16px', borderRadius: 12, marginBottom: 16, background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.15)' }}>
                   <p style={{ color: '#64748b', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Quick Wins</p>
-                  {scoreResult.quick_wins.slice(0, 3).map((w, i) => (
+                  {scoreResult!.quick_wins.slice(0, 3).map((w, i) => (
                     <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 5 }}>
                       <CheckCheck style={{ width: 12, height: 12, color: '#10b981', flexShrink: 0, marginTop: 1 }} />
                       <span style={{ color: '#94a3b8', fontSize: 11, lineHeight: 1.5 }}>{w}</span>
