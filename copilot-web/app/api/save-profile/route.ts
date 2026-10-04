@@ -1,15 +1,16 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-)
 
 export async function POST(req: NextRequest) {
   try {
+    // ── Lazy-import to avoid module-level instantiation during build ───────────
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    )
+
     const body = await req.json()
     const {
       user_id,
@@ -26,7 +27,12 @@ export async function POST(req: NextRequest) {
     } = body
 
     if (!user_id) {
-      return NextResponse.json({ error: 'user_id is required' }, { status: 400 })
+      // No user_id — return a local-only profile without persisting
+      return NextResponse.json({
+        ok: true,
+        profile_id: crypto.randomUUID(),
+        local_only: true,
+      })
     }
 
     // ── 1. Insert the interview profile ───────────────────────────────────────
