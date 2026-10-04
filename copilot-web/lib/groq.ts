@@ -62,6 +62,6 @@ export function makeGroqClient(): Groq {
 }
 
 // Keep resolveGroqModel for backward compat but make it instant (no probe)
-export async function resolveGroqModel(_groq: Groq): Promise<string> {
+export async function resolveGroqModel(_groq?: Groq): Promise<string> {
   return CANDIDATE_MODELS[0]
 }
