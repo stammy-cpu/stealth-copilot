@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import {
-  Link2, FileText, Cpu, Mic, CheckCircle2, Upload, X,
+  Link2, FileText, Mic, CheckCircle2, Upload, X,
   ChevronRight, ChevronLeft, Zap, AlignLeft, BookOpen, Radio,
   Loader2, SkipForward, Target, Building2, ListChecks, Star,
   MicOff, Save, Play, Sparkles, Briefcase, AlertTriangle,
@@ -677,7 +677,7 @@ export default function InterviewSetupWizard({ onComplete, onDismiss, userId }: 
               {!resumeFile && (
                 <div style={{ marginTop: 16, padding: '12px 14px', borderRadius: 10, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.12)' }}>
                   <p style={{ color: '#64748b', fontSize: 11, lineHeight: 1.6 }}>
-                    <strong style={{ color: '#94a3b8' }}>No CV?</strong> You can skip this — the AI will still create a strong session based on the job description alone, using natural phrases like "in a previous role…" when referencing your background.
+                    <strong style={{ color: '#94a3b8' }}>No CV?</strong> You can skip this — the AI will still create a strong session based on the job description alone, using natural phrases like &ldquo;in a previous role&rdquo; when referencing your background.
                   </p>
                 </div>
               )}
