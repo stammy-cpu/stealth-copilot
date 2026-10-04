@@ -225,6 +225,31 @@ function CopilotLiveScreen({ config, onReset }: { config: WizardConfig; onReset:
         </div>
 
         {/* ── Action buttons ─────────────────────────────────────────────── */}
+
+        {/* Desktop overlay instructions */}
+        <div style={{
+          padding: '16px 18px', borderRadius: 14, marginBottom: 16,
+          background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <Shield style={{ width: 14, height: 14, color: '#6366f1', flexShrink: 0 }} />
+            <p style={{ color: '#a5b4fc', fontSize: 12, fontWeight: 600 }}>Launch the Desktop Overlay</p>
+          </div>
+          <p style={{ color: '#64748b', fontSize: 11, lineHeight: 1.6, marginBottom: 10 }}>
+            Your session profile is already saved to Supabase. Open a terminal and run the overlay app — it will auto-load your config via Realtime:
+          </p>
+          <div style={{
+            background: '#080b11', borderRadius: 8, padding: '10px 14px',
+            border: '1px solid rgba(255,255,255,0.08)', fontFamily: 'var(--font-mono)',
+            fontSize: 12, color: '#10b981', letterSpacing: '0.02em',
+          }}>
+            python stealth_copilot.py
+          </div>
+          <p style={{ color: '#475569', fontSize: 10.5, marginTop: 8, lineHeight: 1.5 }}>
+            Keep the overlay running during your interview. It listens to audio and surfaces answers in real-time based on your configured profile.
+          </p>
+        </div>
+
         <div style={{ display: 'flex', gap: 10 }}>
           <button
             onClick={onReset}
@@ -242,22 +267,25 @@ function CopilotLiveScreen({ config, onReset }: { config: WizardConfig; onReset:
             New Session
           </button>
           <button
-            onClick={() => window.open(window.location.origin, '_blank')}
+            onClick={() => {
+              navigator.clipboard.writeText('python stealth_copilot.py').catch(() => {})
+            }}
             style={{
               flex: 2, padding: '12px 20px', borderRadius: 10, cursor: 'pointer', border: 'none',
-              background: 'linear-gradient(90deg, #10b981, #06b6d4)',
+              background: 'linear-gradient(90deg, #6366f1, #06b6d4)',
               color: '#fff', fontSize: 13, fontWeight: 700,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-              boxShadow: '0 0 25px -4px rgba(16,185,129,0.4)',
+              boxShadow: '0 0 25px -4px rgba(99,102,241,0.4)',
               transition: 'all 150ms ease-in-out',
             }}
-            onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 0 35px -4px rgba(16,185,129,0.55)' }}
-            onMouseOut={e  => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 0 25px -4px rgba(16,185,129,0.4)' }}
+            onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 0 35px -4px rgba(99,102,241,0.55)' }}
+            onMouseOut={e  => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 0 25px -4px rgba(99,102,241,0.4)' }}
           >
             <Play style={{ width: 14, height: 14 }} />
-            Open Copilot Overlay
+            Copy Launch Command
           </button>
         </div>
+
       </div>
 
       <style>{`
