@@ -242,7 +242,7 @@ function CopilotLiveScreen({ config, onReset }: { config: WizardConfig; onReset:
             New Session
           </button>
           <button
-            onClick={() => window.open('http://localhost:3000', '_blank')}
+            onClick={() => window.open(window.location.origin, '_blank')}
             style={{
               flex: 2, padding: '12px 20px', borderRadius: 10, cursor: 'pointer', border: 'none',
               background: 'linear-gradient(90deg, #10b981, #06b6d4)',

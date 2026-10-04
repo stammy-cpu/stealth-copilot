@@ -1,18 +1,15 @@
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { makeGroqClient, resolveGroqModel } from '@/lib/groq'
+import { makeGroqClient, groqChatWithFallback } from '@/lib/groq'
 
-// Hard caps to stay well under 8 000 TPM
-const MAX_CV   = 2500
-const MAX_JD   = 2000
-const MAX_OUT  = 1600
+const MAX_CV  = 2500
+const MAX_JD  = 2000
+const MAX_OUT = 1600
 
 export async function POST(req: NextRequest) {
   try {
-    const groq  = makeGroqClient()
-    const model = await resolveGroqModel(groq)
-
+    const groq = makeGroqClient()
     const { cvText, jdText, roleTitle, company, rate } = await req.json()
 
     if (!jdText?.trim() && !roleTitle?.trim()) {
@@ -22,20 +19,17 @@ export async function POST(req: NextRequest) {
     const hasRealCv      = (cvText?.trim().length ?? 0) > 40
     const hasRealCompany = (company?.trim().length ?? 0) > 1
 
-    // ── Cap inputs ────────────────────────────────────────────────────────────
     const cvSnippet = hasRealCv
       ? cvText.trim().slice(0, MAX_CV)
       : '(No CV — use "In a previous role…" style. Never invent company names.)'
-
     const jdSnippet = (jdText || '').trim().slice(0, MAX_JD)
 
-    // ── Prompt (kept intentionally short) ────────────────────────────────────
     const system = `You are an elite interview coach AI.
 Output ONLY valid JSON — zero markdown, no extra text.
 
 RULES (never break):
 - NEVER invent company names, project names, or metrics not in the CV.
-- If no employer is named, use: "In a previous role…" / "At a former employer…"
+- If no employer named, use: "In a previous role…" / "At a former employer…"
 - BANNED words: leverage, delve, utilize, synergy, spearheaded, robust, furthermore, crucial, holistic, tapestry.
 - Sound 100% human. Use contractions. Vary sentence length.
 - All anchor stories must follow STAR (Situation → Task → Action → Result).
@@ -52,7 +46,7 @@ ${cvSnippet}
 JOB DESCRIPTION:
 ${jdSnippet}
 
-Return this exact JSON structure:
+Return this exact JSON:
 {
   "role_title": "string",
   "company_name": "string or null",
@@ -69,11 +63,10 @@ Return this exact JSON structure:
     "failure": "STAR format. Honest setback + what changed after.",
     "salary": "Confident anchor. Non-defensive. Leaves room to negotiate."
   },
-  "system_prompt": "400-500 words. Injected live into the AI overlay during the interview. Must include: (1) who the candidate is, (2) role context + what the interviewer cares about, (3) the 5 anchor stories in 1-sentence each, (4) format rules: bullets for technical, prose for behavioural, (5) tone: natural, confident, never robotic, (6) integrity rule: never invent specific companies or metrics, use vague references if needed, (7) routing: detect question TYPE and pick the right story or approach — don't keyword-match."
+  "system_prompt": "400-500 words. Live AI overlay prompt. Include: (1) candidate profile, (2) role context, (3) 5 anchor stories 1-sentence each, (4) format rules: bullets for technical/prose for behavioural, (5) tone: natural/confident/never robotic, (6) integrity: never invent companies/metrics, use vague refs if needed, (7) routing: detect question TYPE and respond accordingly."
 }`
 
-    const completion = await groq.chat.completions.create({
-      model,
+    const completion = await groqChatWithFallback(groq, {
       messages: [
         { role: 'system', content: system },
         { role: 'user',   content: user },
