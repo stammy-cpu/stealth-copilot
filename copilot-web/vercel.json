@@ -2,5 +2,11 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "installCommand": "npm install",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "functions": {
+    "app/api/fetch-url/route.ts":      { "maxDuration": 30 },
+    "app/api/generate-prompt/route.ts":{ "maxDuration": 30 },
+    "app/api/score-cv/route.ts":       { "maxDuration": 30 },
+    "app/api/save-profile/route.ts":   { "maxDuration": 15 }
+  }
 }
