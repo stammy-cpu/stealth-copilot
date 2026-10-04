@@ -874,27 +874,76 @@ export default function InterviewSetupWizard({ onComplete, onDismiss, userId }: 
                   />
                 </div>
 
-                {/* Key Focus Areas */}
+                {/* Job Description / Interview Details */}
                 <div>
-                  <label style={{ display: 'block', color: '#94a3b8', fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 7 }}>
-                    <ListChecks style={{ width: 11, height: 11, display: 'inline', marginRight: 5 }} />
-                    Key Focus Areas
-                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#94a3b8', fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                      <ListChecks style={{ width: 11, height: 11 }} />
+                      Job Description / Interview Details
+                    </label>
+                    {jdText && (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
+                        padding: '2px 8px', borderRadius: 6,
+                        background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)',
+                        color: '#10b981', fontSize: 9, fontWeight: 600,
+                      }}>
+                        <CheckCircle2 style={{ width: 9, height: 9 }} />
+                        Auto-filled from link
+                      </span>
+                    )}
+                  </div>
                   <textarea
-                    value={keyFocus}
-                    onChange={e => setKeyFocus(e.target.value)}
-                    placeholder="e.g. LLM evaluation, prompt engineering, Python, system design…"
-                    rows={3}
+                    value={jdText}
+                    onChange={e => {
+                      setJdText(e.target.value)
+                      // Reset score so it re-runs when JD is edited
+                      setMatchScore(null); setScoreResult(null); setScoreAnimated(0)
+                    }}
+                    placeholder={`Paste the full job description or interview details here.
+
+Example:
+• We're looking for a Senior React developer...
+• Requirements: 5+ years TypeScript, GraphQL...
+• Responsibilities: Lead frontend architecture...
+
+The more detail you provide, the smarter and more tailored the AI responses will be.`}
+                    rows={7}
                     style={{
-                      width: '100%', padding: '11px 14px',
-                      background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)',
-                      borderRadius: 10, color: '#f8fafc', fontSize: 13, outline: 'none',
-                      fontFamily: 'var(--font-inter)', resize: 'vertical', lineHeight: 1.6,
+                      width: '100%', padding: '12px 14px',
+                      background: '#1e293b', border: `1px solid ${jdText ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.12)'}`,
+                      borderRadius: 10, color: '#f8fafc', fontSize: 12.5, outline: 'none',
+                      fontFamily: 'var(--font-inter)', resize: 'vertical', lineHeight: 1.7,
                       transition: 'border-color 150ms ease-in-out',
                     }}
                     onFocus={e => { e.target.style.borderColor = '#6366f1'; e.target.style.boxShadow = '0 0 0 2px rgba(99,102,241,0.15)' }}
-                    onBlur={e  => { e.target.style.borderColor = 'rgba(255,255,255,0.12)'; e.target.style.boxShadow = 'none' }}
+                    onBlur={e  => { e.target.style.borderColor = jdText ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.12)'; e.target.style.boxShadow = 'none' }}
                   />
+                  <p style={{ color: '#475569', fontSize: 10.5, marginTop: 6, lineHeight: 1.5 }}>
+                    Paste anything — job post, email brief, recruiter notes, or interview prep details.
+                    The AI uses this to tailor every response to this exact role.
+                  </p>
+
+                  {/* Extracted tech tags */}
+                  {urlData?.tech_stack && urlData.tech_stack.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 10 }}>
+                      <span style={{ color: '#475569', fontSize: 10, alignSelf: 'center', marginRight: 2 }}>Detected:</span>
+                      {urlData.tech_stack.slice(0, 10).map((t, i) => (
+                        <span key={i} style={{
+                          padding: '2px 9px', borderRadius: 6,
+                          background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)',
+                          color: '#a5b4fc', fontSize: 10, fontWeight: 500,
+                        }}>{t}</span>
+                      ))}
+                      {urlData.key_requirements && urlData.key_requirements.slice(0, 4).map((r, i) => (
+                        <span key={`req-${i}`} style={{
+                          padding: '2px 9px', borderRadius: 6,
+                          background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.2)',
+                          color: '#67e8f9', fontSize: 10, fontWeight: 500,
+                        }}>{r.length > 28 ? r.slice(0, 28) + '…' : r}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* CV Gap analysis */}
