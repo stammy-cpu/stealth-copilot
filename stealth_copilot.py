@@ -46,6 +46,17 @@ from PyQt5.QtGui  import QFont, QCursor
 from groq import Groq
 from supabase import create_client, Client as SupabaseClient
 
+# ─── Load .env file if present ────────────────────────────────────────────────
+_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+if os.path.exists(_env_path):
+    with open(_env_path) as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _v = _line.split("=", 1)
+                os.environ.setdefault(_k.strip(), _v.strip())
+    print(f"[Config] Loaded .env from {_env_path}")
+
 # ─── Supabase Credentials ──────────────────────────────────────────────────────
 
 SUPABASE_URL      = os.environ.get(
@@ -62,14 +73,17 @@ SUPABASE_ANON_KEY = os.environ.get(
 
 # ─── Groq Credentials ──────────────────────────────────────────────────────────
 
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")  # Set via environment variable or .env
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")  # loaded from .env above
 GROQ_CLIENT = Groq(api_key=GROQ_API_KEY)
 
 GROQ_CHAT_MODELS = [
     "llama-3.3-70b-versatile",
-    "qwen/qwen3.8-27b",
-    "allam-2-7b",
+    "llama3-70b-8192",
+    "llama3-8b-8192",
+    "mixtral-8x7b-32768",
+    "gemma2-9b-it",
 ]
+
 
 # ─── Audio Constants ──────────────────────────────────────────────────────────
 
@@ -405,6 +419,7 @@ _CHAT_MODEL: str = ""
 
 
 def resolve_model() -> str:
+    """Probe each model with a 1-token ping. Falls back non-fatally if all fail."""
     for model in GROQ_CHAT_MODELS:
         try:
             GROQ_CLIENT.chat.completions.create(
@@ -416,7 +431,10 @@ def resolve_model() -> str:
             return model
         except Exception as e:
             print(f"[Groq] Model {model} unavailable: {e}")
-    raise RuntimeError("No Groq chat model available — check API key.")
+    # Non-fatal — overlay still starts; will retry/fail on first generation
+    fallback = GROQ_CHAT_MODELS[0]
+    print(f"[Groq] WARNING: All models unreachable at startup — defaulting to {fallback}. Will retry on first use.")
+    return fallback
 
 
 def transcribe(wav_path: str) -> str:
