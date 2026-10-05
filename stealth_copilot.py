@@ -77,11 +77,10 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")  # loaded from .env above
 GROQ_CLIENT = Groq(api_key=GROQ_API_KEY)
 
 GROQ_CHAT_MODELS = [
-    "llama-3.3-70b-versatile",
-    "llama3-70b-8192",
-    "llama3-8b-8192",
-    "mixtral-8x7b-32768",
-    "gemma2-9b-it",
+    "openai/gpt-oss-120b",   # highest quality — try first
+    "openai/gpt-oss-20b",    # faster fallback
+    "qwen/qwen3.8-27b",      # Qwen fallback
+    "allam-2-7b",             # last resort
 ]
 
 
