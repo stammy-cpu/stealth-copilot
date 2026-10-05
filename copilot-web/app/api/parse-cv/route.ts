@@ -2,9 +2,6 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type PdfParse = (buf: Buffer, opts?: any) => Promise<{ text: string }>
-
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
@@ -19,22 +16,7 @@ export async function POST(req: NextRequest) {
     const fileName    = file.name.toLowerCase()
     let text          = ''
 
-    if (fileName.endsWith('.pdf')) {
-      try {
-        // pdf-parse may be CJS or ESM depending on bundler — handle both shapes
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const mod = await import('pdf-parse') as any
-        const pdfParse: PdfParse = mod.default ?? mod
-        const result = await pdfParse(buffer)
-        text = result.text || ''
-      } catch (e) {
-        console.error('[parse-cv] pdf-parse error:', e)
-        return NextResponse.json(
-          { error: 'Could not read PDF — try pasting your CV text instead.' },
-          { status: 422 },
-        )
-      }
-    } else if (fileName.endsWith('.docx')) {
+    if (fileName.endsWith('.docx')) {
       try {
         const mammoth = await import('mammoth')
         const result  = await mammoth.extractRawText({ buffer })
@@ -49,13 +31,14 @@ export async function POST(req: NextRequest) {
     } else if (fileName.endsWith('.txt')) {
       text = buffer.toString('utf-8')
     } else {
+      // PDF is handled client-side via pdfjs-dist — should not reach here
       return NextResponse.json(
-        { error: 'Unsupported file type. Upload PDF, DOCX, or TXT — or paste your CV.' },
+        { error: 'Use the Paste Text tab for this file type, or upload DOCX / TXT.' },
         { status: 415 },
       )
     }
 
-    // Clean up whitespace artifacts common in PDF extraction
+    // Clean up whitespace artifacts
     text = text
       .replace(/\r\n/g, '\n')
       .replace(/\n{4,}/g, '\n\n')
@@ -72,9 +55,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ text: text.slice(0, 12000) })
   } catch (err) {
     console.error('[parse-cv]', err)
-    return NextResponse.json(
-      { error: 'Failed to parse CV' },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: 'Failed to parse file' }, { status: 500 })
   }
 }

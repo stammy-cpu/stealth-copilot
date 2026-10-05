@@ -310,12 +310,39 @@ export default function InterviewSetupWizard({ onComplete, onDismiss, userId }: 
     setMatchScore(null); setScoreResult(null); setScoreAnimated(0)
 
     try {
-      const fd = new FormData()
-      fd.append('file', file)
-      const res  = await fetch('/api/parse-cv', { method: 'POST', body: fd })
-      const data: { text?: string; error?: string } = await res.json()
-      if (data.error) throw new Error(data.error)
-      setCvText(data.text || '')
+      const fileName = file.name.toLowerCase()
+
+      if (fileName.endsWith('.pdf')) {
+        // Extract PDF text entirely in the browser — no serverless issues
+        const arrayBuffer = await file.arrayBuffer()
+        const pdfjsLib = await import('pdfjs-dist')
+        // Use CDN worker to avoid bundler/webpack complexity
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+        let extracted = ''
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page    = await pdf.getPage(i)
+          const content = await page.getTextContent()
+          extracted += content.items
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((item: any) => ('str' in item ? item.str : ''))
+            .join(' ') + '\n'
+        }
+        extracted = extracted.replace(/\n{4,}/g, '\n\n').trim()
+        if (extracted.length < 50) throw new Error('Could not extract text from this PDF — try the Paste Text tab.')
+        setCvText(extracted.slice(0, 12000))
+
+      } else {
+        // DOCX and TXT — server-side via mammoth / plain read
+        const fd  = new FormData()
+        fd.append('file', file)
+        const res  = await fetch('/api/parse-cv', { method: 'POST', body: fd })
+        const data: { text?: string; error?: string } = await res.json()
+        if (data.error) throw new Error(data.error)
+        setCvText(data.text || '')
+      }
+
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Could not read file'
       setCvParseErr(msg)
