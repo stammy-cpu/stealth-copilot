@@ -316,9 +316,9 @@ export default function InterviewSetupWizard({ onComplete, onDismiss, userId }: 
         // Extract PDF text entirely in the browser — no serverless issues
         const arrayBuffer = await file.arrayBuffer()
         const pdfjsLib = await import('pdfjs-dist')
-        // Use CDN worker to avoid bundler/webpack complexity
-        pdfjsLib.GlobalWorkerOptions.workerSrc =
-          `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+        // Use locally bundled worker (copied from node_modules to public/)
+        // avoids CDN version mismatch issues
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs'
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
         let extracted = ''
         for (let i = 1; i <= pdf.numPages; i++) {
