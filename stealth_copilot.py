@@ -5,8 +5,8 @@ All interview configuration (system prompt, VAD thresholds, max_tokens,
 temperature) is loaded live from Supabase instead of being hard-coded.
 
 Startup flow:
-  1. Show LoginDialog  → authenticate with Supabase email/password.
-  2. Fetch current active_sessions row → load linked interview_profiles row.
+  1. Connect to Supabase using anon key (no login required).
+  2. Fetch latest active_sessions row → load linked interview_profiles row.
   3. Subscribe to Supabase Realtime (active_sessions) via WebSockets.
   4. On profile-change event → hot-swap ProfileConfig in memory (no restart).
 
@@ -202,23 +202,19 @@ profile_cfg = ProfileConfig()
 
 class RealtimeSyncThread(threading.Thread):
     """
-    Subscribes to Supabase Realtime postgres_changes on active_sessions
-    (filtered to the logged-in user_id). On any INSERT/UPDATE event:
-      1. Reads active_profile_id from the payload.
-      2. Fetches the full interview_profiles row.
-      3. Calls profile_cfg.update_from_profile() → hot-swaps config in memory.
-      4. Emits bridge.profile_updated signal to refresh the overlay title.
+    Subscribes to Supabase Realtime postgres_changes on active_sessions.
+    No login required — uses anon key only. Loads the most recently
+    updated session on startup, then watches for live changes from the
+    web wizard and auto-expands the overlay via bridge.session_activated.
     """
 
     def __init__(
         self,
         supabase: SupabaseClient,
-        user_id: str,
         bridge: "Bridge",
     ) -> None:
         super().__init__(daemon=True, name="RealtimeSyncThread")
         self.supabase = supabase
-        self.user_id  = user_id
         self.bridge   = bridge
         self._stop_event = threading.Event()
 
@@ -245,18 +241,20 @@ class RealtimeSyncThread(threading.Thread):
     # ── Initial load (REST, before Realtime socket opens) ────────────────────
 
     def _initial_load(self) -> None:
+        """Load the most recently updated active session (no user_id filter)."""
         try:
             self.bridge.update_status.emit("SYNCING")
             resp = (
                 self.supabase
                     .from_("active_sessions")
                     .select("active_profile_id")
-                    .eq("user_id", self.user_id)
-                    .single()
+                    .order("updated_at", desc=True)
+                    .limit(1)
                     .execute()
             )
-            if resp.data:
-                self._fetch_and_apply(resp.data.get("active_profile_id"))
+            rows = resp.data or []
+            if rows:
+                self._fetch_and_apply(rows[0].get("active_profile_id"))
         except Exception as exc:
             print(f"[Realtime] Initial load error: {exc}")
 
@@ -289,17 +287,19 @@ class RealtimeSyncThread(threading.Thread):
                 args=(profile_id,),
                 daemon=True,
             ).start()
+            # Auto-expand the overlay — web wizard just fired a new session
+            self.bridge.session_activated.emit()
 
         channel.on_postgres_changes(
             event="*",
             schema="public",
             table="active_sessions",
-            filter=f"user_id=eq.{self.user_id}",
+            # No user_id filter — single-user tool, listen to all changes
             callback=_on_change,
         )
 
         await channel.subscribe()
-        print("[Realtime] Subscribed — watching for profile changes.")
+        print("[Realtime] Subscribed — watching active_sessions (no login required).")
 
         # Keep the loop alive; SDK handles heartbeats internally
         while not self._stop_event.is_set():
@@ -769,116 +769,8 @@ class VADMonitor(threading.Thread):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# LOGIN DIALOG
-# ══════════════════════════════════════════════════════════════════════════════
+# LoginDialog removed — no login required; overlay connects via anon key directly.
 
-class LoginDialog(QDialog):
-    """
-    Modal login dialog shown on startup.
-    On successful auth, exposes .supabase and .user_id for the main app.
-    """
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.supabase: SupabaseClient | None = None
-        self.user_id:  str | None = None
-        self._build_ui()
-
-    def _build_ui(self) -> None:
-        self.setWindowTitle("Stealth Copilot — Sign In")
-        self.setFixedSize(420, 310)
-        self.setWindowFlags(Qt.Dialog | Qt.WindowTitleHint | Qt.WindowCloseButtonHint)
-        self.setStyleSheet("""
-            QDialog     { background-color: #0d1117; color: #e6edf3; }
-            QLabel      { color: #e6edf3; font-family: 'Segoe UI'; font-size: 12px; }
-            QLineEdit   {
-                background: #161b22; color: #e6edf3;
-                border: 1px solid #30363d; border-radius: 6px;
-                padding: 8px 12px; font-size: 12px; font-family: 'Segoe UI';
-            }
-            QLineEdit:focus { border: 1px solid #1f6feb; }
-            QPushButton {
-                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
-                    stop:0 #1f6feb, stop:1 #7c3aed);
-                color: white; border: none; border-radius: 6px;
-                padding: 10px 20px; font-weight: bold;
-                font-size: 12px; font-family: 'Segoe UI';
-            }
-            QPushButton:hover   { background: #388bfd; }
-            QPushButton:pressed { background: #1158c7; }
-            QPushButton:disabled { background: #21262d; color: #484f58; }
-        """)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(32, 28, 32, 28)
-        layout.setSpacing(14)
-
-        # Logo row
-        logo = QLabel("⚡  Stealth Copilot")
-        logo.setFont(QFont("Segoe UI", 17, QFont.Bold))
-        logo.setStyleSheet("color: #58a6ff; margin-bottom: 2px;")
-        layout.addWidget(logo)
-
-        sub = QLabel("Sign in to load your interview profile")
-        sub.setStyleSheet("color: #8b949e; font-size: 11px; margin-bottom: 6px;")
-        layout.addWidget(sub)
-
-        self.email_input = QLineEdit()
-        self.email_input.setPlaceholderText("Email address")
-        self.email_input.setFixedHeight(40)
-        layout.addWidget(self.email_input)
-
-        self.pw_input = QLineEdit()
-        self.pw_input.setPlaceholderText("Password")
-        self.pw_input.setEchoMode(QLineEdit.Password)
-        self.pw_input.setFixedHeight(40)
-        self.pw_input.returnPressed.connect(self._attempt_login)
-        layout.addWidget(self.pw_input)
-
-        self.error_lbl = QLabel("")
-        self.error_lbl.setStyleSheet("color: #f85149; font-size: 11px;")
-        self.error_lbl.setWordWrap(True)
-        self.error_lbl.setFixedHeight(20)
-        layout.addWidget(self.error_lbl)
-
-        self.btn = QPushButton("Sign In")
-        self.btn.setFixedHeight(42)
-        self.btn.setCursor(QCursor(Qt.PointingHandCursor))
-        self.btn.clicked.connect(self._attempt_login)
-        layout.addWidget(self.btn)
-
-        footer = QLabel("Don't have an account? Visit stealth-copilot.vercel.app")
-        footer.setStyleSheet("color: #484f58; font-size: 10px; margin-top: 4px;")
-        footer.setAlignment(Qt.AlignCenter)
-        layout.addWidget(footer)
-
-    def _attempt_login(self) -> None:
-        email    = self.email_input.text().strip()
-        password = self.pw_input.text()
-        if not email or not password:
-            self.error_lbl.setText("Please enter both email and password.")
-            return
-
-        self.btn.setText("Signing in...")
-        self.btn.setEnabled(False)
-        self.error_lbl.setText("")
-        QApplication.processEvents()
-
-        try:
-            client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-            resp   = client.auth.sign_in_with_password({"email": email, "password": password})
-            if resp.user:
-                self.supabase = client
-                self.user_id  = resp.user.id
-                print(f"[Auth] Signed in as {resp.user.email} (id={resp.user.id})")
-                self.accept()
-            else:
-                self.error_lbl.setText("Sign-in failed — check your credentials.")
-        except Exception as exc:
-            self.error_lbl.setText(str(exc)[:120])
-        finally:
-            self.btn.setText("Sign In")
-            self.btn.setEnabled(True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1262,17 +1154,12 @@ def main() -> None:
     os.environ.setdefault("GROQ_API_KEY", GROQ_API_KEY)
 
     app = QApplication(sys.argv)
-    app.setQuitOnLastWindowClosed(False)   # Don't quit if login closes
-
-    # ── Step 1: Login ─────────────────────────────────────────────────────────
-    login = LoginDialog()
-    if login.exec_() != QDialog.Accepted or not login.user_id:
-        print("[Copilot] Login cancelled — exiting.")
-        sys.exit(0)
-
-    supabase = login.supabase
-    user_id  = login.user_id
     app.setQuitOnLastWindowClosed(True)
+
+    # ── Step 1: Connect to Supabase (no login required) ──────────────────────
+    print("[Copilot] Connecting to Supabase (anon key — no login required) ...")
+    supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+    print("[Copilot] Connected.")
 
     # ── Step 2: Resolve Groq model ────────────────────────────────────────────
     print("[Copilot] Resolving Groq chat model ...")
@@ -1288,7 +1175,7 @@ def main() -> None:
     vad.start()
 
     # ── Step 4: Supabase Realtime sync (load profile + subscribe) ────────────
-    sync = RealtimeSyncThread(supabase, user_id, bridge)
+    sync = RealtimeSyncThread(supabase, bridge)
     sync.start()
 
     # ── Step 5: Win32 hotkeys ─────────────────────────────────────────────────
@@ -1306,7 +1193,6 @@ def main() -> None:
 
     print("=" * 60)
     print(f"[Copilot] Overlay at ({WIN_X},{WIN_Y})  {WIN_W}x{WIN_H}")
-    print(f"[Copilot] User ID: {user_id}")
     print("[Copilot] Hotkeys: Ctrl+Enter=Force Trigger | Escape=Cancel")
     print("[Copilot] VAD:     Dynamic endpointing (1.5s / profile / 3.5s)")
     print("[Copilot] Realtime: Subscribed to active_sessions changes")
