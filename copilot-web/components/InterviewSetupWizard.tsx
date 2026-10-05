@@ -212,10 +212,13 @@ export default function InterviewSetupWizard({ onComplete, onDismiss, userId }: 
   const [jdAutoFilled, setJdAutoFilled] = useState(false)
 
   // Step 3 — Resume
+  const [cvTab,      setCvTab]      = useState<'upload' | 'paste'>('upload')
   const [resumeFile, setResumeFile] = useState<File | null>(null)
   const [resumeName, setResumeName] = useState('')
   const [isDragging, setIsDragging] = useState(false)
   const [cvText,     setCvText]     = useState('')
+  const [cvParsing,  setCvParsing]  = useState(false)
+  const [cvParseErr, setCvParseErr] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
   // Step 4 — Fit Score + Mode
@@ -293,24 +296,41 @@ export default function InterviewSetupWizard({ onComplete, onDismiss, userId }: 
     }
   }
 
-  // ── Step 3: File ────────────────────────────────────────────────────────────
+  // ── Step 3: File (server-side parse) ──────────────────────────────────────
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault(); setIsDragging(false)
     const file = e.dataTransfer.files?.[0]
-    if (file && (file.type.includes('pdf') || file.name.endsWith('.docx'))) acceptFile(file)
+    if (file) acceptFile(file)
   }, [])
 
-  function acceptFile(file: File) {
+  async function acceptFile(file: File) {
+    setCvParseErr('')
+    setCvParsing(true)
     setResumeFile(file); setResumeName(file.name)
-    const reader = new FileReader()
-    reader.onload = e => setCvText(((e.target?.result as string) || '').slice(0, 12000))
-    reader.readAsText(file)
     setMatchScore(null); setScoreResult(null); setScoreAnimated(0)
+
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res  = await fetch('/api/parse-cv', { method: 'POST', body: fd })
+      const data: { text?: string; error?: string } = await res.json()
+      if (data.error) throw new Error(data.error)
+      setCvText(data.text || '')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not read file'
+      setCvParseErr(msg)
+      setCvText('')
+      setResumeFile(null); setResumeName('')
+    } finally {
+      setCvParsing(false)
+    }
   }
 
   // ── Step 4: Real scoring ────────────────────────────────────────────────────
+  const [scoreErr, setScoreErr] = useState('')
+
   async function triggerScoring() {
-    setScoreLoading(true)
+    setScoreLoading(true); setScoreErr('')
     try {
       const res  = await fetch('/api/score-cv', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -320,8 +340,11 @@ export default function InterviewSetupWizard({ onComplete, onDismiss, userId }: 
       if (data.error) throw new Error(data.error)
       setScoreResult(data)
       setMatchScore(data.overall_score)
-    } catch {
-      setMatchScore(35) // conservative fallback
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Scoring failed'
+      setScoreErr(msg)
+      // Only use fallback if we truly have no other info
+      if (matchScore === null) setMatchScore(null)
     } finally {
       setScoreLoading(false)
     }
@@ -624,66 +647,133 @@ export default function InterviewSetupWizard({ onComplete, onDismiss, userId }: 
           {step === 3 && (
             <div>
               <h2 style={{ fontFamily: 'var(--font-jakarta)', color: '#f8fafc', fontSize: 20, fontWeight: 700, marginBottom: 6 }}>Candidate Resume</h2>
-              <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 24, lineHeight: 1.6 }}>
-                Upload your CV so the AI can tailor answers to your exact experience and score your fit against the job description.
+              <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
+                Add your CV so the AI can tailor answers to your exact experience and score your fit.
               </p>
 
-              <div
-                onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={handleDrop}
-                onClick={() => !resumeFile && fileRef.current?.click()}
-                style={{
-                  borderRadius: 16,
-                  border: `2px dashed ${isDragging ? '#06b6d4' : resumeFile ? '#10b981' : 'rgba(255,255,255,0.12)'}`,
-                  background: isDragging ? 'rgba(6,182,212,0.06)' : resumeFile ? 'rgba(16,185,129,0.06)' : 'rgba(30,41,59,0.5)',
-                  padding: '44px 28px', textAlign: 'center',
-                  cursor: resumeFile ? 'default' : 'pointer', transition: 'all 200ms',
-                }}
-              >
-                <input ref={fileRef} type="file" accept=".pdf,.docx" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) acceptFile(f) }} />
-                {resumeFile ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 52, height: 52, borderRadius: 12, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <FileText style={{ width: 24, height: 24, color: '#10b981' }} />
-                    </div>
-                    <div>
-                      <p style={{ color: '#10b981', fontWeight: 600, fontSize: 14, marginBottom: 3 }}>{resumeName}</p>
-                      <p style={{ color: '#64748b', fontSize: 11 }}>{(resumeFile.size / 1024).toFixed(1)} KB</p>
-                    </div>
-                    <button onClick={e => { e.stopPropagation(); setResumeFile(null); setResumeName(''); setCvText(''); setMatchScore(null); setScoreResult(null) }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '5px 12px', color: '#ef4444', fontSize: 11, cursor: 'pointer' }}>
-                      <X style={{ width: 11, height: 11 }} /> Remove
-                    </button>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
-                    <div style={{ width: 56, height: 56, borderRadius: 14, background: isDragging ? 'rgba(6,182,212,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${isDragging ? 'rgba(6,182,212,0.3)' : 'rgba(255,255,255,0.08)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Upload style={{ width: 24, height: 24, color: isDragging ? '#06b6d4' : '#334155' }} />
-                    </div>
-                    <div>
-                      <p style={{ color: isDragging ? '#06b6d4' : '#94a3b8', fontWeight: 500, fontSize: 14, marginBottom: 4 }}>{isDragging ? 'Drop your file here' : 'Drag & drop your CV here'}</p>
-                      <p style={{ color: '#475569', fontSize: 11 }}>or click to browse · PDF or DOCX</p>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      {['PDF', 'DOCX'].map(t => (
-                        <span key={t} style={{ padding: '3px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#64748b', fontSize: 10, fontWeight: 600 }}>{t}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+              {/* Tab switcher */}
+              <div style={{ display: 'flex', gap: 4, marginBottom: 18, background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 4, border: '1px solid rgba(255,255,255,0.07)' }}>
+                {(['upload', 'paste'] as const).map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setCvTab(tab)}
+                    style={{
+                      flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12.5, fontWeight: 600,
+                      transition: 'all 150ms',
+                      background: cvTab === tab ? 'rgba(99,102,241,0.18)' : 'transparent',
+                      color: cvTab === tab ? '#a5b4fc' : '#64748b',
+                      boxShadow: cvTab === tab ? 'inset 0 0 0 1px rgba(99,102,241,0.3)' : 'none',
+                    }}
+                  >
+                    {tab === 'upload' ? '📄  Upload File' : '✏️  Paste Text'}
+                  </button>
+                ))}
               </div>
 
-              {!resumeFile && (
+              {/* ── Upload tab ── */}
+              {cvTab === 'upload' && (
+                <div>
+                  <div
+                    onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={handleDrop}
+                    onClick={() => !resumeFile && !cvParsing && fileRef.current?.click()}
+                    style={{
+                      borderRadius: 16,
+                      border: `2px dashed ${isDragging ? '#06b6d4' : resumeFile ? '#10b981' : cvParseErr ? '#ef4444' : 'rgba(255,255,255,0.12)'}`,
+                      background: isDragging ? 'rgba(6,182,212,0.06)' : resumeFile ? 'rgba(16,185,129,0.06)' : 'rgba(30,41,59,0.5)',
+                      padding: '36px 28px', textAlign: 'center',
+                      cursor: resumeFile || cvParsing ? 'default' : 'pointer', transition: 'all 200ms',
+                    }}
+                  >
+                    <input ref={fileRef} type="file" accept=".pdf,.docx,.txt" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) acceptFile(f) }} />
+
+                    {cvParsing ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: '50%', border: '2px solid rgba(99,102,241,0.3)', borderTopColor: '#6366f1', animation: 'spin 0.8s linear infinite' }} />
+                        <p style={{ color: '#94a3b8', fontSize: 13 }}>Reading CV...</p>
+                      </div>
+                    ) : resumeFile ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 52, height: 52, borderRadius: 12, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <FileText style={{ width: 24, height: 24, color: '#10b981' }} />
+                        </div>
+                        <div>
+                          <p style={{ color: '#10b981', fontWeight: 600, fontSize: 14, marginBottom: 3 }}>{resumeName}</p>
+                          <p style={{ color: '#64748b', fontSize: 11 }}>{(resumeFile.size / 1024).toFixed(1)} KB · {cvText.length.toLocaleString()} chars extracted</p>
+                        </div>
+                        <button onClick={e => { e.stopPropagation(); setResumeFile(null); setResumeName(''); setCvText(''); setMatchScore(null); setScoreResult(null); setCvParseErr('') }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '5px 12px', color: '#ef4444', fontSize: 11, cursor: 'pointer' }}>
+                          <X style={{ width: 11, height: 11 }} /> Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+                        <div style={{ width: 56, height: 56, borderRadius: 14, background: isDragging ? 'rgba(6,182,212,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${isDragging ? 'rgba(6,182,212,0.3)' : 'rgba(255,255,255,0.08)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Upload style={{ width: 24, height: 24, color: isDragging ? '#06b6d4' : '#334155' }} />
+                        </div>
+                        <div>
+                          <p style={{ color: isDragging ? '#06b6d4' : '#94a3b8', fontWeight: 500, fontSize: 14, marginBottom: 4 }}>{isDragging ? 'Drop your file here' : 'Drag & drop your CV here'}</p>
+                          <p style={{ color: '#475569', fontSize: 11 }}>or click to browse · PDF, DOCX or TXT</p>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          {['PDF', 'DOCX', 'TXT'].map(t => (
+                            <span key={t} style={{ padding: '3px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#64748b', fontSize: 10, fontWeight: 600 }}>{t}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {cvParseErr && (
+                    <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 10, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                      <p style={{ color: '#f87171', fontSize: 11, lineHeight: 1.5 }}>⚠ {cvParseErr}</p>
+                      <p style={{ color: '#64748b', fontSize: 10.5, marginTop: 4 }}>Try the &ldquo;Paste Text&rdquo; tab instead.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Paste tab ── */}
+              {cvTab === 'paste' && (
+                <div>
+                  <textarea
+                    value={cvText}
+                    onChange={e => {
+                      setCvText(e.target.value)
+                      setMatchScore(null); setScoreResult(null); setScoreAnimated(0)
+                      setResumeName(e.target.value.length > 10 ? 'Pasted CV' : '')
+                    }}
+                    placeholder={`Paste your full CV or resume text here...\n\nExample:\nJohn Smith\nSenior Software Engineer\n\nExperience:\n• Lead Engineer at Acme Corp (2021–2024)\n  – Built distributed microservices handling 2M req/day\n  – Tech: TypeScript, Go, Kubernetes, PostgreSQL\n\nEducation:\n• BSc Computer Science, University of London (2018)\n\nSkills: TypeScript, React, Node.js, AWS, Docker, SQL`}
+                    rows={12}
+                    style={{
+                      width: '100%', padding: '12px 14px', background: '#1e293b',
+                      border: `1px solid ${cvText.length > 50 ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.12)'}`,
+                      borderRadius: 10, color: '#f8fafc', fontSize: 12, outline: 'none',
+                      fontFamily: 'var(--font-inter)', resize: 'vertical', lineHeight: 1.7,
+                      transition: 'border-color 150ms',
+                    }}
+                    onFocus={e => { e.target.style.borderColor = '#6366f1'; e.target.style.boxShadow = '0 0 0 2px rgba(99,102,241,0.15)' }}
+                    onBlur={e  => { e.target.style.borderColor = cvText.length > 50 ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.12)'; e.target.style.boxShadow = 'none' }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+                    <p style={{ color: '#475569', fontSize: 10.5 }}>Paste plain text — remove images, tables and formatting for best results.</p>
+                    <p style={{ color: cvText.length > 50 ? '#10b981' : '#475569', fontSize: 10.5 }}>{cvText.length.toLocaleString()} chars</p>
+                  </div>
+                </div>
+              )}
+
+              {!resumeFile && !cvText && (
                 <div style={{ marginTop: 16, padding: '12px 14px', borderRadius: 10, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.12)' }}>
                   <p style={{ color: '#64748b', fontSize: 11, lineHeight: 1.6 }}>
-                    <strong style={{ color: '#94a3b8' }}>No CV?</strong> You can skip this — the AI will still create a strong session based on the job description alone, using natural phrases like &ldquo;in a previous role&rdquo; when referencing your background.
+                    <strong style={{ color: '#94a3b8' }}>No CV?</strong> You can skip this — the AI will still coach you based on the job description, using natural phrases like &ldquo;in a previous role&rdquo; when referencing your background.
                   </p>
                 </div>
               )}
-              <p style={{ color: '#475569', fontSize: 11, marginTop: 10, textAlign: 'center' }}>Your file is read locally and never permanently stored.</p>
+              <p style={{ color: '#475569', fontSize: 11, marginTop: 10, textAlign: 'center' }}>Your CV is never permanently stored — used only for this session.</p>
             </div>
           )}
+
 
           {/* ══ STEP 4 — Fit Score + Assist Mode ══ */}
           {step === 4 && (
@@ -720,7 +810,21 @@ export default function InterviewSetupWizard({ onComplete, onDismiss, userId }: 
                 </div>
               </div>
 
-              {/* Score breakdown */}
+              {/* Score error */}
+              {scoreErr && (
+                <div style={{ padding: '12px 14px', borderRadius: 10, marginBottom: 12, background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                  <div>
+                    <p style={{ color: '#f87171', fontSize: 12, fontWeight: 600, marginBottom: 3 }}>⚠ Scoring failed</p>
+                    <p style={{ color: '#64748b', fontSize: 11, lineHeight: 1.5 }}>{scoreErr}</p>
+                  </div>
+                  <button onClick={() => triggerScoring()}
+                    style={{ flexShrink: 0, padding: '5px 12px', borderRadius: 8, border: '1px solid rgba(99,102,241,0.3)', background: 'rgba(99,102,241,0.1)', color: '#a5b4fc', fontSize: 11, cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    Retry
+                  </button>
+                </div>
+              )}
+
+
               {scoreResult?.score_breakdown && (
                 <div style={{ padding: '14px 16px', borderRadius: 12, marginBottom: 12, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)' }}>
                   <p style={{ color: '#64748b', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Score Breakdown</p>
