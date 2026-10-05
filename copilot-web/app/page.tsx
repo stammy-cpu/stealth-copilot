@@ -55,25 +55,20 @@ function CopilotLiveScreen({ config, onReset }: { config: WizardConfig; onReset:
           </p>
         </div>
 
-        {/* ── Live indicator ─────────────────────────────────────────────── */}
+        {/* ── Sync indicator ─────────────────────────────────────────────── */}
         <div style={{
           padding: '14px 18px', borderRadius: 14, marginBottom: 16,
-          background: 'rgba(16,185,129,0.07)',
-          border: '1px solid rgba(16,185,129,0.25)',
+          background: 'rgba(99,102,241,0.08)',
+          border: '1px solid rgba(99,102,241,0.25)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ position: 'relative', width: 10, height: 10 }}>
-              <div style={{
-                width: 10, height: 10, borderRadius: '50%', background: '#10b981',
-                animation: 'live-dot 1.5s ease-in-out infinite',
-              }} />
-            </div>
-            <span style={{ color: '#10b981', fontSize: 13, fontWeight: 600 }}>LIVE — Desktop overlay active</span>
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#6366f1' }} />
+            <span style={{ color: '#a5b4fc', fontSize: 13, fontWeight: 600 }}>Profile synced — launch your overlay to go live</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Activity style={{ width: 13, height: 13, color: '#10b981' }} />
-            <span style={{ color: '#64748b', fontSize: 11 }}>Realtime sync</span>
+            <Activity style={{ width: 13, height: 13, color: '#6366f1' }} />
+            <span style={{ color: '#64748b', fontSize: 11 }}>Realtime ready</span>
           </div>
         </div>
 
@@ -226,27 +221,31 @@ function CopilotLiveScreen({ config, onReset }: { config: WizardConfig; onReset:
 
         {/* ── Action buttons ─────────────────────────────────────────────── */}
 
-        {/* Desktop overlay instructions */}
+        {/* Desktop overlay — PRIMARY next step */}
         <div style={{
-          padding: '16px 18px', borderRadius: 14, marginBottom: 16,
-          background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)',
+          padding: '20px', borderRadius: 16, marginBottom: 16,
+          background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(6,182,212,0.08))',
+          border: '1px solid rgba(99,102,241,0.35)',
+          boxShadow: '0 0 30px -8px rgba(99,102,241,0.3)',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <Shield style={{ width: 14, height: 14, color: '#6366f1', flexShrink: 0 }} />
-            <p style={{ color: '#a5b4fc', fontSize: 12, fontWeight: 600 }}>Launch the Desktop Overlay</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <Play style={{ width: 15, height: 15, color: '#6366f1', flexShrink: 0 }} />
+            <p style={{ color: '#c7d2fe', fontSize: 13, fontWeight: 700 }}>Next step — launch your overlay</p>
           </div>
-          <p style={{ color: '#64748b', fontSize: 11, lineHeight: 1.6, marginBottom: 10 }}>
-            Your session profile is already saved to Supabase. Open a terminal and run the overlay app — it will auto-load your config via Realtime:
+          <p style={{ color: '#94a3b8', fontSize: 12, lineHeight: 1.6, marginBottom: 12 }}>
+            Your profile is saved and waiting. Open a terminal on your interview machine and run:
           </p>
           <div style={{
-            background: '#080b11', borderRadius: 8, padding: '10px 14px',
-            border: '1px solid rgba(255,255,255,0.08)', fontFamily: 'var(--font-mono)',
-            fontSize: 12, color: '#10b981', letterSpacing: '0.02em',
+            background: '#080b11', borderRadius: 10, padding: '12px 16px',
+            border: '1px solid rgba(99,102,241,0.3)', fontFamily: 'var(--font-mono)',
+            fontSize: 13, color: '#10b981', letterSpacing: '0.02em',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
-            python stealth_copilot.py
+            <span>python stealth_copilot.py</span>
+            <span style={{ color: '#334155', fontSize: 10 }}>← run this</span>
           </div>
-          <p style={{ color: '#475569', fontSize: 10.5, marginTop: 8, lineHeight: 1.5 }}>
-            Keep the overlay running during your interview. It listens to audio and surfaces answers in real-time based on your configured profile.
+          <p style={{ color: '#475569', fontSize: 11, marginTop: 10, lineHeight: 1.6 }}>
+            Log in when prompted → the overlay appears as a tiny green dot → the moment you clicked &ldquo;Start Copilot Session&rdquo; above, it auto-expands and starts listening. The overlay is <strong style={{ color: '#6ee7b7' }}>100% invisible</strong> to Zoom, Teams &amp; OBS.
           </p>
         </div>
 

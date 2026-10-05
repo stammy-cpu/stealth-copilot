@@ -950,7 +950,19 @@ export default function InterviewSetupWizard({ onComplete, onDismiss, userId }: 
           {step === 5 && (
             <div>
               <h2 style={{ fontFamily: 'var(--font-jakarta)', color: '#f8fafc', fontSize: 20, fontWeight: 700, marginBottom: 6 }}>Launch Pre-Flight</h2>
-              <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 22, lineHeight: 1.6 }}>Final checks before activating your AI co-pilot.</p>
+              <p style={{ color: '#94a3b8', fontSize: 13, marginBottom: 16, lineHeight: 1.6 }}>Final checks before activating your AI co-pilot.</p>
+
+              {/* ── Run this first banner ── */}
+              <div style={{ padding: '14px 16px', borderRadius: 12, marginBottom: 18, background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.3)' }}>
+                <p style={{ color: '#67e8f9', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>⚡ Run this on your desktop first</p>
+                <div style={{ background: '#080b11', borderRadius: 8, padding: '9px 13px', fontFamily: 'var(--font-mono)', fontSize: 12, color: '#10b981', border: '1px solid rgba(6,182,212,0.2)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>python stealth_copilot.py</span>
+                  <span style={{ color: '#334155', fontSize: 10 }}>← run this first</span>
+                </div>
+                <p style={{ color: '#64748b', fontSize: 11, marginTop: 8, lineHeight: 1.5 }}>
+                  Log in → overlay sits as a tiny green dot → click <strong style={{ color: '#a5b4fc' }}>Start Copilot Session</strong> below → it auto-expands and starts listening.
+                </p>
+              </div>
 
               {/* Config summary */}
               <div style={{ padding: '14px 16px', borderRadius: 12, marginBottom: 16, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)' }}>
