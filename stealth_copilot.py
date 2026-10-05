@@ -325,13 +325,14 @@ class RealtimeSyncThread(threading.Thread):
 # ══════════════════════════════════════════════════════════════════════════════
 
 class Bridge(QObject):
-    update_text    = pyqtSignal(str)    # replace overlay text completely
-    update_stream  = pyqtSignal(str)    # append streaming token
-    update_status  = pyqtSignal(str)    # status key → STATUS_META
-    update_src     = pyqtSignal(str)    # audio device label
-    update_rms     = pyqtSignal(float)  # live RMS value
-    cancel_stream  = pyqtSignal()       # Escape hotkey → kill active generation
-    profile_updated = pyqtSignal(str)  # role_title → refresh overlay header
+    update_text       = pyqtSignal(str)    # replace overlay text completely
+    update_stream     = pyqtSignal(str)    # append streaming token
+    update_status     = pyqtSignal(str)    # status key → STATUS_META
+    update_src        = pyqtSignal(str)    # audio device label
+    update_rms        = pyqtSignal(float)  # live RMS value
+    cancel_stream     = pyqtSignal()       # Escape hotkey → kill active generation
+    profile_updated   = pyqtSignal(str)   # role_title → refresh overlay header
+    session_activated = pyqtSignal()      # web wizard fired → auto-expand overlay
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -846,7 +847,7 @@ class LoginDialog(QDialog):
         self.btn.clicked.connect(self._attempt_login)
         layout.addWidget(self.btn)
 
-        footer = QLabel("Don't have an account? Visit localhost:3000")
+        footer = QLabel("Don't have an account? Visit stealth-copilot.vercel.app")
         footer.setStyleSheet("color: #484f58; font-size: 10px; margin-top: 4px;")
         footer.setAlignment(Qt.AlignCenter)
         layout.addWidget(footer)
@@ -922,7 +923,8 @@ class OverlayWindow(QWidget):
         bridge.update_status.connect(self._on_status)
         bridge.update_src.connect(self._on_src)
         bridge.update_rms.connect(self._on_rms)
-        bridge.profile_updated.connect(self._on_profile_updated)  # NEW
+        bridge.profile_updated.connect(self._on_profile_updated)
+        bridge.session_activated.connect(self._on_session_activated)
 
     # ── Build UI ──────────────────────────────────────────────────────────────
 
@@ -1178,6 +1180,8 @@ class OverlayWindow(QWidget):
                 "border: 1px solid rgba(40,180,90,35); "
                 "border-radius: 6px; padding: 1px 8px;"
             )
+            # Notify overlay to expand — web wizard just activated a session
+            self.bridge.session_activated.emit()
         else:
             self.profile_lbl.setText("⚠  No profile active — set one in the web panel")
             self.profile_lbl.setStyleSheet(
@@ -1186,6 +1190,27 @@ class OverlayWindow(QWidget):
                 "border: 1px solid rgba(255,160,30,30); "
                 "border-radius: 6px; padding: 1px 8px;"
             )
+
+    def _on_session_activated(self) -> None:
+        """
+        Fired when the web wizard pushes a new session to Supabase.
+        Auto-expands the overlay and starts the copilot listening —
+        so clicking 'Start Copilot Session' in the browser IS the trigger.
+        """
+        # Expand if collapsed
+        if self._collapsed:
+            self._expand()
+
+        # Make sure window is visible and on top
+        self.show()
+        self.raise_()
+        self._enforce_topmost()
+
+        # Auto-arm the VAD so it starts listening immediately
+        if not self._armed:
+            self._toggle_arm()
+
+        print("[Overlay] Session activated from web wizard — overlay expanded + listening.")
 
     # ── Drag ─────────────────────────────────────────────────────────────────
 
@@ -1275,9 +1300,9 @@ def main() -> None:
     # ── Step 6: Overlay window ────────────────────────────────────────────────
     window = OverlayWindow(bridge, vad, worker)
     window.show()
-    window.raise_()
-    window.activateWindow()
-    window._enforce_topmost()
+    window._apply_win32_styles()   # apply stealth flags before collapsing
+    window._collapse()             # start as a tiny green dot — web wizard is the trigger
+    print("[Copilot] Overlay hidden as dot — trigger it from the web wizard.")
 
     print("=" * 60)
     print(f"[Copilot] Overlay at ({WIN_X},{WIN_Y})  {WIN_W}x{WIN_H}")
