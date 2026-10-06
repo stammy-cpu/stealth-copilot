@@ -499,8 +499,9 @@ def stream_bullets(transcript: str, bridge: Bridge, worker: "PipelineWorker") ->
         "\n\nCRITICAL OUTPUT RULES:\n"
         "1. NO MARKDOWN, NO ASTERISKS. DO NOT use **bold** or *italics*. Output plain text ONLY.\n"
         "2. BE EXTREMELY CONCISE and punchy. Get straight to the point. No introductory filler.\n"
-        "3. Provide exactly what the user should say, formatted for easy reading at a glance.\n"
-        "4. EXTREMELY HUMAN AND NATURAL: Use conversational English. NO AI fluff, NO 'synergy', NO 'leverage', NO 'delve'. DO NOT sound robotic. Do NOT include phrases like 'Here is what you should say' or 'As an AI'."
+        "3. EXTREMELY HUMAN AND NATURAL: Use conversational English. NO AI fluff, NO 'synergy', NO 'leverage', NO 'delve'. DO NOT sound robotic.\n"
+        "4. NO BULLET POINTS. NEVER use lists, bullet points, or semicolons. Write in continuous conversational, spoken sentences as if speaking out loud.\n"
+        "5. INCOMPLETE SENTENCES: If the interviewer's transcript is just an acknowledgment (e.g., 'Thanks, that makes sense') or an incomplete thought without an actual question or prompt, DO NOT answer. Output EXACTLY this and nothing else: `(Waiting for them to finish...)`"
     )
     prompt = profile_cfg.system_prompt + strict_rules
     tokens = 1024  # Force higher token limit to prevent mid-sentence cutoffs

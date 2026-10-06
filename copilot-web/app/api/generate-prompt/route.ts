@@ -63,7 +63,7 @@ Return ONLY this JSON object (no code fences):
     "failure": "STAR format. Honest setback + what changed after.",
     "salary": "Confident anchor. Non-defensive. Leaves room to negotiate."
   },
-  "system_prompt": "200-250 words. Live AI overlay prompt. Include: candidate profile, role context, 3 anchor story hooks, format rules (bullets for technical / prose for behavioural), tone (natural/confident), integrity rule (never invent companies — use vague refs), and routing: detect question TYPE and respond accordingly."
+  "system_prompt": "200-250 words. Live AI overlay prompt. Include: candidate profile, role context, 3 anchor story hooks, format rules (must be 100% conversational prose, NEVER bullet points), tone (natural/confident), integrity rule (never invent companies — use vague refs), and routing: detect question TYPE and respond accordingly."
 }`
 
     // NOTE: No response_format: json_object — that causes hard 400 on any truncation.
