@@ -26,20 +26,14 @@ export async function POST(req: NextRequest) {
       temperature = 0.45,
     } = body
 
-    if (!user_id) {
-      // No user_id — return a local-only profile without persisting
-      return NextResponse.json({
-        ok: true,
-        profile_id: crypto.randomUUID(),
-        local_only: true,
-      })
-    }
+    // Since we removed login, fallback to a dummy user UUID to satisfy the foreign key constraint
+    const finalUserId = user_id || 'e2f445c6-1caf-4c50-980d-04f5e21d995c'
 
     // ── 1. Insert the interview profile ───────────────────────────────────────
     const { data: profile, error: insertErr } = await supabase
       .from('interview_profiles')
       .insert({
-        user_id,
+        user_id: finalUserId,
         role_title:            role_title    ?? 'Untitled Role',
         company_name:          company_name  ?? null,
         hourly_rate:           hourly_rate   ?? null,
@@ -64,7 +58,7 @@ export async function POST(req: NextRequest) {
     const { error: sessionErr } = await supabase
       .from('active_sessions')
       .upsert(
-        { user_id, active_profile_id: profile.id, updated_at: new Date().toISOString() },
+        { user_id: finalUserId, active_profile_id: profile.id, updated_at: new Date().toISOString() },
         { onConflict: 'user_id' },
       )
 
