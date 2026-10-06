@@ -20,7 +20,6 @@ export async function POST(req: NextRequest) {
       system_prompt,
       cvText,
       jdText,
-      anchor_stories,
       vad_silence_threshold = 2.2,
       max_tokens = 380,
       temperature = 0.45,
