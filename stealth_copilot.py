@@ -495,8 +495,14 @@ def stream_bullets(transcript: str, bridge: Bridge, worker: "PipelineWorker") ->
     Checks worker._cancel_flag on every token to support Escape cancellation.
     """
     global _CHAT_MODEL
-    prompt = profile_cfg.system_prompt
-    tokens = profile_cfg.max_tokens
+    strict_rules = (
+        "\n\nCRITICAL OUTPUT RULES:\n"
+        "1. NO MARKDOWN, NO ASTERISKS. DO NOT use **bold** or *italics*. Output plain text ONLY.\n"
+        "2. BE EXTREMELY CONCISE and punchy. Get straight to the point. No introductory filler.\n"
+        "3. Provide exactly what the user should say, formatted for easy reading at a glance."
+    )
+    prompt = profile_cfg.system_prompt + strict_rules
+    tokens = 1024  # Force higher token limit to prevent mid-sentence cutoffs
     temp   = profile_cfg.temperature
 
     print(f"[Groq] Streaming (model={_CHAT_MODEL}, role={profile_cfg.role_title!r}) ...")
