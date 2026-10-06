@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       system_prompt,
       cvText,
       jdText,
-      vad_silence_threshold = 2.2,
+      vad_silence_threshold = 3.0,
       max_tokens = 380,
       temperature = 0.45,
     } = body

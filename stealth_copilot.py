@@ -152,7 +152,7 @@ class ProfileConfig:
         self._system_prompt    = self._DEFAULT_PROMPT
         self._max_tokens       = 380
         self._temperature      = 0.45
-        self._vad_default_secs = 2.2   # neutral silence tier (profile-driven)
+        self._vad_default_secs = 3.0   # neutral silence tier (profile-driven)
         self._role_title       = "No Profile Loaded"
         self._profile_id: str | None = None
 
@@ -163,7 +163,7 @@ class ProfileConfig:
             self._system_prompt    = profile.get("system_prompt") or self._DEFAULT_PROMPT
             self._max_tokens       = int(profile.get("max_tokens")            or 380)
             self._temperature      = float(profile.get("temperature")          or 0.45)
-            self._vad_default_secs = float(profile.get("vad_silence_threshold") or 2.2)
+            self._vad_default_secs = float(profile.get("vad_silence_threshold") or 3.0)
             self._role_title       = profile.get("role_title") or "Unknown Role"
             self._profile_id       = profile.get("id")
         print(f"[Config] Profile hot-swapped → {self._role_title!r}")
@@ -499,7 +499,8 @@ def stream_bullets(transcript: str, bridge: Bridge, worker: "PipelineWorker") ->
         "\n\nCRITICAL OUTPUT RULES:\n"
         "1. NO MARKDOWN, NO ASTERISKS. DO NOT use **bold** or *italics*. Output plain text ONLY.\n"
         "2. BE EXTREMELY CONCISE and punchy. Get straight to the point. No introductory filler.\n"
-        "3. Provide exactly what the user should say, formatted for easy reading at a glance."
+        "3. Provide exactly what the user should say, formatted for easy reading at a glance.\n"
+        "4. EXTREMELY HUMAN AND NATURAL: Use conversational English. NO AI fluff, NO 'synergy', NO 'leverage', NO 'delve'. DO NOT sound robotic. Do NOT include phrases like 'Here is what you should say' or 'As an AI'."
     )
     prompt = profile_cfg.system_prompt + strict_rules
     tokens = 1024  # Force higher token limit to prevent mid-sentence cutoffs
