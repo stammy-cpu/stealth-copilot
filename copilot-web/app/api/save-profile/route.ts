@@ -40,7 +40,6 @@ export async function POST(req: NextRequest) {
         cv_raw_text:           cvText        ?? null,
         jd_raw_text:           jdText        ?? null,
         system_prompt:         system_prompt ?? null,
-        anchor_stories:        anchor_stories ?? [],
         vad_silence_threshold,
         max_tokens,
         temperature,
