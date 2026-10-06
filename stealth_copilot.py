@@ -63,13 +63,11 @@ SUPABASE_URL      = os.environ.get(
     "SUPABASE_URL",
     "https://fsmavohjwxhyihpqnofn.supabase.co",
 )
-SUPABASE_ANON_KEY = os.environ.get(
-    "SUPABASE_ANON_KEY",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
-    ".eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzbWF2b2hqd3hoeWlocHFub2ZuIiwicm9sZSI"
-    "6ImFub24iLCJpYXQiOjE3OTA4NzcxMjcsImV4cCI6MjEwNjQ1MzEyN30"
-    ".RKCCDJSHSa6ZB0g7ujCjmfeZ5DcfDjHriAYRORDRpNY",
+SUPABASE_KEY = os.environ.get(
+    "SUPABASE_SERVICE_ROLE_KEY",
+    os.environ.get("SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZzbWF2b2hqd3hoeWlocHFub2ZuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA4NzcxMjcsImV4cCI6MjEwNjQ1MzEyN30.RKCCDJSHSa6ZB0g7ujCjmfeZ5DcfDjHriAYRORDRpNY")
 )
+
 
 # ─── Groq Credentials ──────────────────────────────────────────────────────────
 
@@ -281,7 +279,7 @@ class RealtimeSyncThread(threading.Thread):
         )
         print(f"[Realtime] Connecting to {realtime_url} ...")
 
-        client = AsyncRealtimeClient(realtime_url, SUPABASE_ANON_KEY)
+        client = AsyncRealtimeClient(realtime_url, SUPABASE_KEY)
 
         try:
             await client.connect()
@@ -1175,7 +1173,7 @@ def main() -> None:
 
     # ── Step 1: Connect to Supabase (no login required) ──────────────────────
     print("[Copilot] Connecting to Supabase (anon key — no login required) ...")
-    supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
     print("[Copilot] Connected.")
 
     # ── Step 2: Resolve Groq model ────────────────────────────────────────────
