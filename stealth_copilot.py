@@ -863,7 +863,7 @@ class OverlayWindow(QWidget):
         root.setSpacing(6)
 
         # ── Profile strip (NEW) ────────────────────────────────────────────
-        self.profile_lbl = QLabel("⇄ Connecting to Supabase...")
+        self.profile_lbl = QLabel("⏳ Waiting for web wizard...")
         self.profile_lbl.setFont(QFont("Segoe UI", 8))
         self.profile_lbl.setStyleSheet(
             "color: rgba(120,150,255,180); "
